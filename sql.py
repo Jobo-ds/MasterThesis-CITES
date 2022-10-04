@@ -13,6 +13,7 @@ import pandas as pd
 Function to connect to database
 """
 
+
 def connect_sqlite3(database):
     connection = None
     try:
@@ -22,21 +23,25 @@ def connect_sqlite3(database):
         print(f"The error '{err}' occurred")
     return connection
 
+
 """
 Function to get data from database
 """
 
+
 def getData(sql, db):
     try:
-        result = db.execute(sql)
+        result = pd.read_sql_query(sql, db)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred during getData")
     return result
+
 
 """
 Returns a list of unique properties.
 Useful for list content.
 """
+
 
 def getDropdownList(attribute, table, db):
     try:
@@ -51,7 +56,9 @@ def getDropdownList(attribute, table, db):
 """
 Build database from CITES csv files.
 Only use to build a new database!
+The auxiliary tables are for faster plotting, would probably be smarter with foreign keys.
 """
+
 
 def build_database(database):
     # Build list of CSV files
@@ -94,16 +101,16 @@ def build_database(database):
         print(f"The error '{err}' occurred while creating table")
     # Import data from csv files
     pandas_dtypes = ["int", "int",
-                 "str", "str",
-                 "str", "str",
-                 "str", "str",
-                 "str", "float",
-                 "str", "str",
-                 "str", "str",
-                 "str", "str",
-                 "str", "str",
-                 "str", "str",
-                 "int"]
+                     "str", "str",
+                     "str", "str",
+                     "str", "str",
+                     "str", "float",
+                     "str", "str",
+                     "str", "str",
+                     "str", "str",
+                     "str", "str",
+                     "str", "str",
+                     "int"]
     dtypes_dict = {cols[i]: pandas_dtypes[i] for i in range(len(cols))}
     print("Starting import of csv files...")
     i = 1
@@ -127,7 +134,7 @@ def build_database(database):
             run_time = end_time - start_time
             process_times.append(run_time)
             avg_processtime = sum(process_times) / len(process_times)
-            time_remain = (total_files-i)*avg_processtime
+            time_remain = (total_files - i) * avg_processtime
             time_remain = str(datetime.timedelta(seconds=time_remain))
             print(f"{file} imported successfully ({i}/{total_files}). Time Remaining: {time_remain[0:8]}")
             if debug:
@@ -145,14 +152,24 @@ def build_database(database):
             print(f"The error '{err}' occurred while importing {file}")
     print("CSV files imported successfully")
     print("Creating Auxiliary tables")
-    # Create table
+    # Create table with distinct rows
     try:
-        sql = "CREATE TABLE distinct_table AS SELECT DISTINCT Taxon, Class, \"Order\", Family, Genus FROM shipments;"
+        sql = "CREATE TABLE distinct_table_amount AS SELECT DISTINCT Taxon, Class, \"Order\", Family, Genus, COUNT(Importer) as 'amount' FROM shipments GROUP BY Taxon, Class, \"Order\", Family, Genus;"
         db.execute(sql)
-        print("Auxiliary Table successfully created")
+        print("Distinct Auxiliary Table successfully created")
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while creating auxiliary table")
+        print(f"The error '{err}' occurred while creating Distinct Auxiliary Table")
+    # Create tables for specific data
+    try:
+        sql = "CREATE TABLE imports AS SELECT Importer as 'Country', COUNT(Importer) as 'Imports' from shipments GROUP BY Importer;"
+        db.execute(sql)
+        print("Imports table successfully created")
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while creating imports table")
+    try:
+        sql = "CREATE TABLE exports AS SELECT Exporter as 'Country', COUNT(Exporter) as 'Exports' from shipments GROUP BY Exporter;"
+        db.execute(sql)
+        print("Exports table successfully created")
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while creating exports table")
     print("Database creation complete")
-
-
-
