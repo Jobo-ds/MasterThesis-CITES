@@ -14,8 +14,7 @@ Connect to SQLite3 database
 """
 # db = sql.connect_sqlite3("cites")
 
-# Rebuild Database
-# sql.build_database("cites_2")
+
 
 """
 Get Data

@@ -127,7 +127,7 @@ def build_database(database):
         try:
             # Using pandas df is faster than iterating over rows
             start_time = time.perf_counter()
-            df = pandas.read_csv(file, dtype=dtypes_dict)
+            df = pd.read_csv(file, dtype=dtypes_dict)
             df.to_sql(table, db, if_exists='append', index=False)
             # Calculate run time
             end_time = time.perf_counter()
@@ -151,25 +151,25 @@ def build_database(database):
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while importing {file}")
     print("CSV files imported successfully")
-    print("Creating Auxiliary tables")
+    print("Creating Auxiliary tables.. This will take a minute.. or two.")
     # Create table with distinct rows
     try:
         sql = "CREATE TABLE distinct_table_amount AS SELECT DISTINCT Taxon, Class, \"Order\", Family, Genus, COUNT(Importer) as 'amount' FROM shipments GROUP BY Taxon, Class, \"Order\", Family, Genus;"
         db.execute(sql)
-        print("Distinct Auxiliary Table successfully created")
+        print("Distinct Auxiliary Table successfully created. Only two more to go...")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating Distinct Auxiliary Table")
     # Create tables for specific data
     try:
         sql = "CREATE TABLE imports AS SELECT Importer as 'Country', COUNT(Importer) as 'Imports' from shipments GROUP BY Importer;"
         db.execute(sql)
-        print("Imports table successfully created")
+        print("Imports table successfully created. Almost there...")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating imports table")
     try:
         sql = "CREATE TABLE exports AS SELECT Exporter as 'Country', COUNT(Exporter) as 'Exports' from shipments GROUP BY Exporter;"
         db.execute(sql)
-        print("Exports table successfully created")
+        print("Exports table successfully created.")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating exports table")
     print("Database creation complete")
