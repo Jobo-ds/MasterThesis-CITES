@@ -1,0 +1,13 @@
+    # Determine data types
+    datatypes = []
+    with open(csv_files[-1], 'r') as f:
+        csv_reader = csv.reader(f)
+        i = 0 # Counter - Amount of columns
+        j = 0 # Counter - Sample rows
+        while i < len(cols):
+            # Grab 100 sample rows from newest csv to determine datatype from
+            while j < 100:
+                print(csv_reader)
+                csv_reader.next()
+                j += 1
+            i += 1
