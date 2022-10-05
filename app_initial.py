@@ -71,14 +71,14 @@ data_map = dbc.Card(
         ),
         html.Div(
             [
-                html.H4('Plotting imports/exports on map'),
-                html.P("Select type:"),
-                dcc.RadioItems(
-                    id='spatial_type',
-                    options=["Imports", "Exports"],
+                html.H4('Plotting all imports/exports on map'),
+                dbc.RadioItems(
+                    id="spatial_type",
                     value="Imports",
-                    inline=True
-                ),
+                    options=[
+                        {"label": "Imports", "value": "Imports"},
+                        {"label": "Exports", "value": "Exports"},
+                ]),
                 dcc.Graph(id="graph"),
             ], style={"margin": "auto auto"}
         ),
@@ -174,7 +174,7 @@ histogram_3 = dbc.Card(
     body=True,
 )
 
-histogram_4 = dbc.Card(
+filtered_data_map = dbc.Card(
     [
         html.Div(
             [
@@ -211,7 +211,7 @@ app.layout = dbc.Container(
         dbc.Row(
             [
                 dbc.Col(histogram_0, md=6),
-                dbc.Col(data_map, md=6)
+                dbc.Col(filtered_data_map, md=6)
             ],
             align="center",
         ),
@@ -225,7 +225,7 @@ app.layout = dbc.Container(
         dbc.Row(
             [
                 dbc.Col(histogram_3, md=6),
-                dbc.Col(histogram_4, md=6)
+                dbc.Col(data_map, md=6)
             ],
             align="center",
         ),
@@ -233,7 +233,7 @@ app.layout = dbc.Container(
     fluid=True
 )
 
-
+# Map
 @app.callback(
     Output("graph", "figure"),
     Input("spatial_type", "value"))
@@ -264,18 +264,20 @@ def display_choropleth(spatial_type):
             'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/countries.geojson') as response:
         geojson = json.load(response)
 
+    # https://plotly.github.io/plotly.py-docs/generated/plotly.express.choropleth.html
     fig = px.choropleth(
         spatial_data,
         locations="Country",
-        locationmode="geojson-id",
+        #locationmode="geojson-id",
+        locationmode="ISO-3",
         geojson=geojson,
         color=spatial_type,
         featureidkey="id",
-        center={"lat": 45.5517, "lon": -73.7073},
-        range_color=[0, 20])
+        range_color=[0, 20],
+        color_continuous_scale="Blues")
     fig.update_layout(
-        margin={"r": 0, "t": 0, "l": 0, "b": 0})
-
+        #margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    )
     return fig
 
 
