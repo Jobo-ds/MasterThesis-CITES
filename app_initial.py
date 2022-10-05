@@ -1,4 +1,5 @@
 import sql
+import plot_builder as pltbld
 from dash import Dash, html, dcc
 import plotly.express as px
 import pandas as pd
@@ -6,7 +7,7 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import json
 from urllib.request import urlopen
-import pycountry
+
 import numpy as np
 
 """
@@ -27,15 +28,7 @@ Get Data
 # query = "SELECT * from temporal"
 # temporal_data = sql.getData(query, db)
 
-def get_country_code(alpha_2):
-    for co in list(pycountry.countries):
-        if alpha_2 in co.alpha_2:
-            return co.alpha_3
-        else:
-            for co in list(pycountry.historic_countries):
-                if alpha_2 in co.alpha_2:
-                    return co.alpha_3
-    return alpha_2 + "(Not Found)"
+
 
 """
 Init DASH
@@ -256,7 +249,7 @@ def display_choropleth(spatial_type):
     spatial_data.fillna(0, inplace=True)
     spatial_data.drop(spatial_data.tail(1).index, inplace=True)
     # Convert to Alpha-3, because that's how the geojson works)
-    spatial_data["Country"] = spatial_data["Country"].apply(lambda x: get_country_code(x))
+    spatial_data["Country"] = spatial_data["Country"].apply(lambda x: pltbld.get_alpha_2_code(x))
     # Remove countries with no trade
     spatial_data = spatial_data[spatial_data.Imports != 0.0]
     spatial_data = spatial_data[spatial_data.Exports != 0.0]
