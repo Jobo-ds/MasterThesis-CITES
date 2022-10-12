@@ -19,7 +19,7 @@ Function to connect to database
 def connect_sqlite3(database):
     connection = None
     try:
-        connection = sqlite3.connect(database + ".db")
+        connection = sqlite3.connect(database + ".db", check_same_thread=False)
         print("Connection to SqLite DB successful")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred")
@@ -31,11 +31,11 @@ Function to get data from database
 """
 
 
-def getData(sql, db):
+def runQuery(sql, db):
     try:
         result = pd.read_sql_query(sql, db)
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred during getData")
+        print(f"The error '{err}' occurred during runQuery")
     return result
 
 
@@ -44,10 +44,17 @@ Returns a list of unique properties.
 Useful for list content.
 """
 
+# Abronia deppii
+# Reptilia
+# Sauria
+# Anguidae
+# Abronia
 
-def getDropdownList(attribute, table, db):
+def getDropdownList(target ,clas, order, family, genus):
     try:
-        sql = "SELECT DISTINCT {} from {}".format(attribute, table)
+        db = connect_sqlite3("cites")
+        results = []
+        sql = "SELECT {} from distinct_table_amount".format(target)
         result = pd.read_sql(sql, db)
         result = pd.unique(result)
     except sqlite3.Error as err:
@@ -58,31 +65,22 @@ def getDropdownList(attribute, table, db):
 Returns all imports/exports as a dataframe
 """
 
-def getSpatialTotal():
-    # Get Data from Database
-    db = connect_sqlite3("cites")
+def getSpatialTotal(db):
     print("Getting Spatial Data")
     query_1 = "SELECT * from imports"
     query_2 = "SELECT * from exports"
-    data_1 = getData(query_1, db)
-    data_2 = getData(query_2, db)
+    data_1 = runQuery(query_1, db)
+    data_2 = runQuery(query_2, db)
     spatial_data = data_1.merge(data_2, how="outer", on="Country", sort=True)
     spatial_data.fillna(0, inplace=True)
-    spatial_data.drop(spatial_data.tail(1).index, inplace=True)
-    # Convert to Alpha-3, because that's how the geojson works)
-    spatial_data["Country"] = spatial_data["Country"].apply(lambda x: pltbld.get_alpha_2_code(x))
     # Remove countries with no trade
     spatial_data = spatial_data[spatial_data.Imports != 0.0]
     spatial_data = spatial_data[spatial_data.Exports != 0.0]
-    # Log() Numbers for better accuracy
-    spatial_data["Imports"] = np.log(spatial_data["Imports"])
-    spatial_data["Exports"] = np.log(spatial_data["Exports"])
-    #print(spatial_data.to_string())
     print("Complete")
     return spatial_data
 
 
-def getDropdownList(attribute, table, db):
+def getDropdownList(attribute, db):
     try:
         sql = "SELECT DISTINCT {} from {}".format(attribute, table)
         result = pd.read_sql(sql, db)
