@@ -96,8 +96,12 @@ taxon_1 = dbc.Card(
                     [
                         dbc.Col(" ", md=9),
                         dbc.Col([
-                            dbc.ButtonGroup([dbc.Button("Histogram", color="primary", id="taxon1_btn_hist", value="active"),
-                                             dbc.Button("Line Chart", color="primary", id="taxon1_btn_line", outline=True)])
+                            daq.BooleanSwitch(
+                                on=False,
+                                label="Line Chart",
+                                labelPosition="Right",
+                                id="taxon1_linechart_switch"
+                            )
                         ]
                             , md=3),
                     ],
@@ -217,53 +221,40 @@ def getTaxonData(input_taxon):
 @app.callback(
     Output("taxon_1_graph", "figure"),
     Output("taxon1_title", "children"),
-    Output("taxon1_btn_hist", "value"),
-    Output("taxon1_btn_hist", "outline"),
-    Output("taxon1_btn_line", "value"),
-    Output("taxon1_btn_line", "outline"),
     [Input("taxon_data", "data"),
      Input("input_attribute", "value"),
      Input("input_taxon", "value"),
-     Input("taxon1_btn_hist", "n_click"),
-     Input("taxon1_btn_line", "n_click")])
-def display_taxon(taxon_data, input_attribute, input_taxon, taxon1_btn_hist, taxon1_btn_line):
+     Input("taxon1_linechart_switch", "on")])
+def display_taxon(taxon_data, input_attribute, input_taxon, taxon1_linechart_switch):
     df = pd.read_json(taxon_data, orient='split')
 
-    #Button Control
-    if "taxon1_btn_hist" == ctx.triggered_id:
-        print("taxon1_btn_hist")
-        taxon1_btn_hist = "active"
-        taxon1_btn_hist_outline = False
-        taxon1_btn_line_outline = True
-        taxon1_btn_line = "inactive"
-    elif "taxon1_btn_line" == ctx.triggered_id:
-        print("taxon1_btn_line")
-        taxon1_btn_line = "active"
-        taxon1_btn_hist_outline = True
-        taxon1_btn_line_outline = False
-        taxon1_btn_hist = "inactive"
-
     # Generate Figure
-    if taxon1_btn_hist == "active":
-        fig_hist = px.histogram(
+    if taxon1_linechart_switch:
+        # Make a nice even line
+        # df = df.sort_values(by="Year")
+        #df = df.groupby(['Year'])['Term'].agg(['count']).reset_index()
+        #print(df)
+        fig = px.line(
             df,
-            y=input_attribute,
+            x="Year",
+            color=input_attribute,
+            markers=True
         )
-        return fig_hist, \
-               f"Histogram of total {input_attribute} on {input_taxon}", \
-               taxon1_btn_hist, taxon1_btn_hist_outline,\
-               taxon1_btn_line, taxon1_btn_line_outline
+        return fig, \
+               f"Line Chart of total {input_attribute} on {input_taxon}"
     else:
-        fig_hist = px.histogram(
+        fig = px.histogram(
             df,
             y=input_attribute,
         )
-        return fig_hist, \
-               f"Histogram of total {input_attribute} on {input_taxon}", \
-               taxon1_btn_hist, taxon1_btn_hist_outline,\
-               taxon1_btn_line, taxon1_btn_line_outline
-
-
+        fig.update_layout(
+            xaxis_title="Total Count",
+        )
+        fig.update_yaxes(
+            categoryorder="total descending"
+        )
+        return fig, \
+               f"Histogram of total {input_attribute} on {input_taxon}"
 
 
 # Spatial
