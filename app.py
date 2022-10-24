@@ -1,29 +1,28 @@
-import sql
-from dash import Dash, html, dcc
+import database_scripts as db
+from cfg import null_graph
+import plot_builder as pltbld
+from dash import Dash, html, dcc, ctx, dash_table
 import plotly.express as px
 import pandas as pd
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
+import json
+from urllib.request import urlopen
+import dash_daq as daq
+
+import numpy as np
+
+# Theme: https://bootswatch.com/flatly/
 
 """
 Connect to SQLite3 database
 """
-db = sql.connect_sqlite3("cites")
-
-# Rebuild Database
-# sql.build_database("cites_2")
+conn = db.connect_sqlite3("cites")
 
 """
-Sorting
+Prepare initial data
 """
-temp_data = {
-    "Taxon": "None",
-    "Class": "None",
-    "Order": "None",
-    "Family": "None",
-    "Genus": "None"
-}
-sort_data = pd.DataFrame(temp_data)
+
 """
 Init DASH
 """
@@ -35,55 +34,13 @@ app = Dash(__name__)
 """
 Layout Components
 """
-control_panel = dbc.Card(
+header_search = dbc.Card(
     [
         html.Div(
             [
-                html.H1("Control Panel", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="class-dropdown",
-                                options=sort_list["Class"].unique(),
-                                placeholder="Choose Class"
-                            ), md=2),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="order-dropdown",
-                                options=sort_list["Order"].unique(),
-                                placeholder="Choose Order"
-                            ), md=2),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="famili-dropdown",
-                                options=sort_list["Family"].unique(),
-                                placeholder="Choose Family"
-                            ), md=2),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="genus-dropdown",
-                                options=sort_list["Genus"].unique(),
-                                placeholder="Choose Genus"
-                            ), md=2),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="taxon-dropdown",
-                                options=sort_list["Taxon"].unique(),
-                                placeholder="Choose Taxon"
-                            ), md=2),
-
-                    ],
-                    align="center",
-                ),
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
+                html.H3("Search", style={"text-align": "center"}),
+                dcc.Dropdown(db.buildDropdownTaxon(conn), "Corallus hortulanus", id="input_taxon"),
+                html.Div(id="search_hidden_div", style={"display": "none"})
 
             ]
         ),
@@ -91,125 +48,101 @@ control_panel = dbc.Card(
     body=True,
 )
 
-data_map = dbc.Card(
+header_info = dbc.Card(
     [
         html.Div(
             [
-                html.H1("Map", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.H3("Info Panel", style={"text-align": "center"}),
             ]
         ),
     ],
     body=True,
 )
 
-histogram_0 = dbc.Card(
+Accum_data = dbc.Card(
     [
         html.Div(
             [
-                html.H1("Histogram", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.Div(html.H3("Accum. Data"
+                                 , style={"text-align": "center"})),
             ]
         ),
     ],
     body=True,
 )
 
-histogram_1 = dbc.Card(
+Plot_1 = dbc.Card(
+    [
+        dbc.Row(html.H5("Term type per trade", style={"text-align": "center"}),),
+        dbc.Row(dcc.Graph(id="plot_1_graph"))
+    ],
+    body=True,
+)
+
+Plot_2 = dbc.Card(
     [
         html.Div(
             [
-                html.H1("Histogram", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.Div(html.H3("Plot_2"
+                                 , style={"text-align": "center"})),
             ]
         ),
     ],
     body=True,
 )
 
-histogram_2 = dbc.Card(
+Plot_3 = dbc.Card(
     [
         html.Div(
             [
-                html.H1("Histogram (Top X)", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.Div(html.H3("Plot_3"
+                                 , style={"text-align": "center"})),
             ]
         ),
     ],
     body=True,
 )
 
-histogram_3 = dbc.Card(
+Plot_4 = dbc.Card(
     [
         html.Div(
             [
-                html.H1("???", style={"text-align": "center"}),
-            ]
-        ),
-        html.Div(
-            [
-
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.Div(html.H3("Plot_4"
+                                 , style={"text-align": "center"})),
             ]
         ),
     ],
     body=True,
 )
 
-histogram_4 = dbc.Card(
+spatial_map = dbc.Card(
     [
         html.Div(
             [
-                html.H1("???", style={"text-align": "center"}),
+                dcc.Graph(id="spatial_graph_map"),
+            ]
+            , style={"margin": "auto auto"}),
+    ],
+    body=True,
+)
+
+temporal_control = dbc.Card(
+    [
+        html.Div(
+            [
+                html.Div(html.H3("Temporal Control"
+                                 , style={"text-align": "center"})),
             ]
         ),
+    ],
+    body=True,
+)
+
+spatial_filters = dbc.Card(
+    [
         html.Div(
             [
-
-            ], style={"margin": "auto auto"}
-        ),
-        html.Div(
-            [
-
+                html.H3("Spatial Filters", style={"text-align": "center"}),
             ]
         ),
     ],
@@ -222,31 +155,32 @@ DASH Layout
 
 app.layout = dbc.Container(
     [
-        # Control Panel
+        # Header
         dbc.Row(
             [
-                dbc.Col(control_panel, md=12)
+                dbc.Col(header_search, md=3),
+                dbc.Col(header_info, md=9)
             ],
             align="center",
         ),
+        # Data
         dbc.Row(
             [
-                dbc.Col(histogram_0, md=6),
-                dbc.Col(data_map, md=6)
-            ],
-            align="center",
-        ),
-        dbc.Row(
-            [
-                dbc.Col(histogram_1, md=6),
-                dbc.Col(histogram_2, md=6)
-            ],
-            align="center",
-        ),
-        dbc.Row(
-            [
-                dbc.Col(histogram_3, md=6),
-                dbc.Col(histogram_4, md=6)
+                dbc.Col(
+                    [
+                        dbc.Row(Accum_data),
+                        dbc.Row([dbc.Col(Plot_1, md=5), dbc.Col(Plot_2, md=5)]),
+                        dbc.Row([dbc.Col(Plot_3, md=5), dbc.Col(Plot_4, md=5)]),
+                    ]
+                    , md=9)
+                ,
+                dbc.Col(
+                    [
+                        dbc.Row(spatial_map),
+                        dbc.Row(
+                            [dbc.Col(temporal_control, md=5), dbc.Col(spatial_filters, md=5)])
+                    ]
+                    , md=3)
             ],
             align="center",
         ),
@@ -254,65 +188,23 @@ app.layout = dbc.Container(
     fluid=True
 )
 
+"""
+Search Callback
+"""
+@app.callback(Output("search_hidden_div", "children"), Input("input_taxon", "value"))
+def createTaxonTempTable(input_taxon):
+    db.buildMainDataframe(input_taxon, conn)
+    return "search_active"
 
-# Main Filters
+
+"""
+Plot_1 Callback
+"""
 @app.callback(
-    [
-        Output("class-dropdown", "value")
-
-    ],
-    [
-        Input(component_id="class-dropdown", component_property="value"),
-        Input(component_id="order-dropdown", component_property="value"),
-        Input(component_id="famili-dropdown", component_property="value"),
-        Input(component_id="genus-dropdown", component_property="value"),
-        Input(component_id="taxon-dropdown", component_property="value")
-    ],
-    prevent_initial_call=False
-)
-def update_filters(clas_var, order_var, family_var, genus_var, taxon_var):
-    filter_dict = {
-        "Class": clas_var,
-        "Order": order_var,
-        "Family": family_var,
-        "Genus": genus_var,
-        "Taxon": taxon_var
-    }
-    sql = "SELECT Class FROM distinct_table"
-    sort_data = pd.read_sql(sql, db)
-    sort_data.fillna("None", inplace=True)
-    if filter_dict["Class"]:
-        sql = "SELECT Class, \"Order\" FROM distinct_table WHERE Class=\"{}\"".format(filter_dict["Class"])
-        sort_data = pd.read_sql(sql, db)
-        sort_data.fillna("None", inplace=True)
-    else:
-        sort_data["Order"] = "None"
-        sort_data["Family"] = "None"
-        sort_data["Genus"] = "None"
-        sort_data["Taxon"] = "None"
-    if filter_dict["Order"]:
-        sql = "SELECT Class, \"Order\", Family FROM distinct_table"
-        sort_data = pd.read_sql(sql, db)
-        sort_data.fillna("None", inplace=True)
-    else:
-        sort_data["Family"] = "None"
-        sort_data["Genus"] = "None"
-        sort_data["Taxon"] = "None"
-    if filter_dict["Family"]:
-        sql = "SELECT Class, \"Order\", Family, Genus FROM distinct_table"
-        sort_data = pd.read_sql(sql, db)
-        sort_data.fillna("None", inplace=True)
-    else:
-        sort_data["Genus"] = "None"
-        sort_data["Taxon"] = "None"
-    if filter_dict["Genus"]:
-        sql = "SELECT Class, \"Order\", Family, Genus, Taxon FROM distinct_table"
-        sort_data = pd.read_sql(sql, db)
-        sort_data.fillna("None", inplace=True)
-    else:
-        sort_data["Taxon"] = "None"
-    print(sort_data)
-    return sort_data
+    Output("plot_1_graph", "figure"),
+    [Input("search_hidden_div", "children")])
+def buildPlot_1(activation):
+    return pltbld.buildLineDiagram("Term", conn)
 
 
 if __name__ == "__main__":

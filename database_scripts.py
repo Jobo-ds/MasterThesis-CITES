@@ -9,10 +9,9 @@ import sqlite3
 import time
 import pandas as pd
 import numpy as np
-import plot_builder as pltbld
 
 """
-Function to connect to database
+Connect to database
 """
 
 
@@ -20,74 +19,54 @@ def connect_sqlite3(database):
     connection = None
     try:
         connection = sqlite3.connect(database + ".db", check_same_thread=False)
-        print("Connection to SqLite DB successful")
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred")
+        print(f"The error '{err}' occurred during 'connection to database' in connect_sqlite3")
     return connection
 
 
 """
-Function to get data from database
+Get data from database and return as pandas df
 """
 
 
-def runQuery(sql, db):
+def runQuery(sql, conn):
     try:
-        result = pd.read_sql_query(sql, db)
+        result = pd.read_sql_query(sql, conn)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred during runQuery")
     return result
 
 
 """
-Returns a list of unique properties.
-Useful for list content.
+Populate Dropdown Menu (Taxon)
 """
 
-# Abronia deppii
-# Reptilia
-# Sauria
-# Anguidae
-# Abronia
-
-def getDropdownList(target ,clas, order, family, genus):
+def buildDropdownTaxon(conn):
     try:
-        db = connect_sqlite3("cites")
-        results = []
-        sql = "SELECT {} from distinct_table_amount".format(target)
-        result = pd.read_sql(sql, db)
-        result = pd.unique(result)
+        df = runQuery("SELECT Taxon from distinct_table_amount", conn)
+        taxon_list = df["Taxon"].values.tolist()
+        return taxon_list
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred during getUnique")
-    return result
+        print(f"The error '{err}' occurred during buildDropdownTaxon")
 
 """
-Returns all imports/exports as a dataframe
+Create a temporary table in the sqlite database with Taxon Data
 """
 
-def getSpatialTotal(db):
-    print("Getting Spatial Data")
-    query_1 = "SELECT * from imports"
-    query_2 = "SELECT * from exports"
-    data_1 = runQuery(query_1, db)
-    data_2 = runQuery(query_2, db)
-    spatial_data = data_1.merge(data_2, how="outer", on="Country", sort=True)
-    spatial_data.fillna(0, inplace=True)
-    # Remove countries with no trade
-    spatial_data = spatial_data[spatial_data.Imports != 0.0]
-    spatial_data = spatial_data[spatial_data.Exports != 0.0]
-    print("Complete")
-    return spatial_data
-
-
-def getDropdownList(attribute, db):
+def buildMainDataframe(input_taxon, conn):
     try:
-        sql = "SELECT DISTINCT {} from {}".format(attribute, table)
-        result = pd.read_sql(sql, db)
-        result = pd.unique(result)
+        sql = "DROP TABLE IF EXISTS temp.taxon"
+        conn.execute(sql)
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred during getUnique")
-    return result
+        print(f"The error '{err}' occurred while 'dropping existing table' in buildMainDataframe")
+    try:
+        sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+        conn.execute(sql)
+        print("Temporary taxon table created.")
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while 'creating temporary taxon table' in buildMainDataframe")
+
+
 
 
 """
