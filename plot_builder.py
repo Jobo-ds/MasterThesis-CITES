@@ -37,7 +37,7 @@ def alpha3_to_Name(value):
 Create dictionaries for filters from database results
 """
 def createDictFilters(filter_list, outputfilter):
-    if outputfilter == "purpose":
+    if outputfilter == "Purpose":
         purpose_list = [{"label": "Breeding", "value": "B"},
                         {"label": "Educational", "value": "E"},
                         {"label": "Botanical garden", "value": "G"},
@@ -55,7 +55,7 @@ def createDictFilters(filter_list, outputfilter):
         for dicts in purpose_list:
             if dicts["value"] in filter_list:
                 valid_dict_list.append(dicts)
-    elif outputfilter == "source":
+    elif outputfilter == "Source":
         purpose_list = [{"label": "Artificially propagated plants", "value": "A"},
                         {"label": "Bred in captivity", "value": "C"},
                         {"label": "Bred in captivity (Appx I)", "value": "D"},
@@ -72,8 +72,6 @@ def createDictFilters(filter_list, outputfilter):
         for dicts in purpose_list:
             if dicts["value"] in filter_list:
                 valid_dict_list.append(dicts)
-
-
     return valid_dict_list
 
 
@@ -108,12 +106,11 @@ Build a line diagram of input data
 """
 
 
-def buildLineDiagram(input_attribute, temporal_input, filter_terms, filter_purpose, conn):
+def buildLineDiagram(input_attribute, temporal_input, conn):
     try:
         sql = "SELECT {0}, Year, count({0}) FROM temp.taxon WHERE Year<={1} GROUP BY {0}, Year ORDER BY Year, {0}".format(
             input_attribute, temporal_input)
         df = db.runQuery(sql, conn)
-        df = df.loc[df['Term'].isin(filter_terms)].reset_index(drop=True)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while 'getting data from temp table' in buildLineDiagram")
     fig = px.line(

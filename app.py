@@ -35,7 +35,10 @@ Layout Components
 header_search = html.Div(
     [
         dcc.Dropdown(db.buildDropdownTaxon(), "Corallus hortulanus", id="input_taxon"),
-        html.Div(id="search_hidden_div", style={"display": "none"})
+        html.Div(id="search_hidden_div", style={"display": "none"}),
+        html.Div(id="filtertable_hidden_div", style={"display": "none"}),
+        html.Div(id="taxon_purpose", style={"display": "none"}),
+        html.Div(id="taxon_source", style={"display": "none"}),
 
     ]
 )
@@ -200,14 +203,32 @@ app.layout = dbc.Container(
 )
 
 """
-Search Callback
+Managing the Temporary SQL Table
 """
 
 
-@app.callback(Output("search_hidden_div", "children"), Input("input_taxon", "value"))
+@app.callback(
+    Output("search_hidden_div", "children"),
+    Output("filter_terms", "options"),
+    Output("filter_terms", "value"),
+    Output("filter_purpose", "options"),
+    Output("filter_purpose", "value"),
+    Output("filter_source", "options"),
+    Output("filter_source", "value"),
+    Input("input_taxon", "value"))
 def createTaxonTempTable(input_taxon):
     db.buildMainDataframe(input_taxon, conn, ctx.triggered_id)
-    return "search_active"
+    Term_list, Purpose_list, Source_list = db.getTaxonFilters(conn)
+    Purpose_dict = pltbld.createDictFilters(Purpose_list, "Purpose")
+    Source_dict = pltbld.createDictFilters(Source_list, "Source")
+    return "table_created", Term_list, Term_list, Purpose_dict, Purpose_list, Source_dict, Source_list
+
+@app.callback(
+    Output("filtertable_hidden_div", "children"),
+    Input("filter_terms", "value"),)
+def createTaxonTempTable(filter_terms):
+    db.filterMainDataframe(filter_terms, conn)
+    return "table_modified"
 
 
 """
@@ -229,43 +250,17 @@ def temporal_buttons(temporal_start, temporal_end):
 
 
 """
-Filter Callbacks
-"""
-
-
-@app.callback(Output("filter_terms", "options"), Output("filter_terms", "value"), Input("search_hidden_div", "children"), prevent_initial_call=True)
-def populateFilterTerms(activation):
-    result = db.getUniquevalues("Term", conn)
-    return result, result
-
-@app.callback(Output("filter_purpose", "options"), Output("filter_purpose", "value"), Input("search_hidden_div", "children"), prevent_initial_call=True)
-def populateFilterPurpose(activation):
-    result = db.getUniquevalues("Purpose", conn)
-    result.sort()
-    dict_result = pltbld.createDictFilters(result, "purpose")
-    return dict_result, result
-
-@app.callback(Output("filter_source", "options"), Output("filter_source", "value"), Input("search_hidden_div", "children"), prevent_initial_call=True)
-def populateFilterSource(activation):
-    result = db.getUniquevalues("Source", conn)
-    result.sort()
-    dict_result = pltbld.createDictFilters(result, "source")
-    return dict_result, result
-
-"""
 Plot_1 Callback
 """
 
 
 @app.callback(
     Output("plot_1_graph", "figure"),
-    Input("search_hidden_div", "children"),
-    Input("temporal_input", "value"),
-    Input("filter_terms", "value"),
-    Input("filter_purpose", "value"),prevent_initial_call=True
+    Input("filtertable_hidden_div", "children"),
+    Input("temporal_input", "value"), prevent_initial_call=True
 )
-def buildPlot_1(activation, temporal_input, filter_terms, filter_purpose):
-    return pltbld.buildLineDiagram("Term", temporal_input, filter_terms, filter_purpose, conn)
+def buildPlot_1(activation, temporal_input):
+    return pltbld.buildLineDiagram("Term", temporal_input, conn)
 
 
 """
