@@ -41,10 +41,12 @@ def runQuery(sql, conn):
 Populate Dropdown Menu (Taxon)
 """
 
-def buildDropdownTaxon(conn):
+def buildDropdownTaxon():
     try:
+        conn = connect_sqlite3("cites")
         df = runQuery("SELECT Taxon from distinct_table_amount", conn)
         taxon_list = df["Taxon"].values.tolist()
+        conn.close()
         return taxon_list
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred during buildDropdownTaxon")
@@ -53,20 +55,33 @@ def buildDropdownTaxon(conn):
 Create a temporary table in the sqlite database with Taxon Data
 """
 
-def buildMainDataframe(input_taxon, conn):
-    try:
-        sql = "DROP TABLE IF EXISTS temp.taxon"
-        conn.execute(sql)
-    except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'dropping existing table' in buildMainDataframe")
-    try:
-        sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
-        conn.execute(sql)
-        print("Temporary taxon table created.")
-    except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'creating temporary taxon table' in buildMainDataframe")
+def buildMainDataframe(input_taxon, conn, ctxtriggered_id):
+    if ctxtriggered_id == "input_taxon":
+        try:
+            sql = "DELETE FROM temp.taxon;"
+            conn.execute(sql)
+            sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+            conn.execute(sql)
+        except sqlite3.Error as err:
+            print(f"The error '{err}' occurred while 'copying data into temp table' in buildMainDataframe")
+    else:
+        try:
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+            conn.execute(sql)
+            print("Temporary taxon table created.")
+        except sqlite3.Error as err:
+            print(f"The error '{err}' occurred while 'creating temporary taxon table' in buildMainDataframe")
 
 
+
+
+"""
+Get all uniques in temporary table attribute
+"""
+def getUniquevalues(attribute, conn):
+    sql = "SELECT DISTINCT {} FROM temp.taxon".format(attribute)
+    df = runQuery(sql, conn)
+    return [x for x in df[attribute].values.tolist() if x is not None]
 
 
 """
