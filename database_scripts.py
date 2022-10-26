@@ -54,21 +54,6 @@ def buildDropdownTaxon():
 
 
 """
-Get data for filters
-"""
-
-
-def getTaxonFilters(conn):
-    Term_list = getUniquevalues("Term", conn)
-    Term_list.sort()
-    Purpose_list = getUniquevalues("Purpose", conn)
-    Purpose_list.sort()
-    Source_list = getUniquevalues("Source", conn)
-    Source_list.sort()
-    return Term_list, Purpose_list, Source_list
-
-
-"""
 Create a temporary table in the sqlite database with Taxon Data
 """
 
@@ -78,44 +63,18 @@ def buildMainDataframe(input_taxon, conn, ctxtriggered_id):
         try:
             sql = "DELETE FROM temp.taxon;"
             conn.execute(sql)
-            sql = "INSERT INTO temp.taxon " \
-                  "SELECT * FROM shipments " \
-                  "WHERE Taxon=\"{}\"".format(input_taxon)
+            sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while 'copying data into temp table' in buildMainDataframe")
     else:
         try:
-            sql = "CREATE TEMPORARY TABLE temp.taxon " \
-                  "AS SELECT * FROM shipments " \
-                  "WHERE Taxon=\"{0}\"".format(input_taxon)
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
             print("Temporary taxon table created.")
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while 'creating temporary taxon table' in buildMainDataframe")
 
-
-def filterMainDataframe(filter_terms, conn):
-    try:
-        # Get current Taxon name
-        sql = "SELECT * FROM temp.taxon LIMIT 1"
-        input_taxon = runQuery(sql, conn)
-        input_taxon = str(input_taxon.iloc[0,3])
-
-        # Turn Python list into SQL list
-        f = lambda x: "'" + str(x) + "'"
-        filter_terms = map(f, filter_terms)
-        filter_terms = "(" + ", ".join(map(str, filter_terms)) + ")"
-
-        sql = "DELETE FROM temp.taxon;"
-        conn.execute(sql)
-        sql = "INSERT INTO temp.taxon " \
-              "SELECT * FROM shipments " \
-              "WHERE Taxon=\"{0}\" " \
-              "AND Term IN {1}".format(input_taxon, filter_terms)
-        conn.execute(sql)
-    except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'filtering data' in filterMainDataframe")
 
 """
 Get all uniques in temporary table attribute
@@ -125,7 +84,17 @@ Get all uniques in temporary table attribute
 def getUniquevalues(attribute, conn):
     sql = "SELECT DISTINCT {} FROM temp.taxon".format(attribute)
     df = runQuery(sql, conn)
-    return [x for x in df[attribute].values.tolist() if x is not None]
+    df = df.fillna(value="Unknown")
+    return df[attribute].values.tolist()
+
+"""
+Convert Python List to SQL List
+"""
+def ListToSQL(Plist):
+    citations = lambda x: "'" + str(x) + "'"
+    Plist = map(citations, Plist)
+    SQLlist = "(" + ", ".join(map(str, Plist)) + ")"
+    return SQLlist
 
 
 """
