@@ -237,6 +237,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     # Calculate Lines for Map
     # Setup MultiIndex DF
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
+    df2["occurrences"] = 0
     df2["width"] = 0.0
     df2["opacity"] = 0.0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
@@ -246,26 +247,22 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     print("Length before adding widths and Opacity: " + str(len(shipment_traces)))
 
     def opacity_decrease(x):
-        if x > 0.2:
+        if x > 0.3:
             return x - 0.05
-        else:
-            return 0.05
-
-    def width_increase(df, row):
-        if df.loc[(row["Exporter"], row["Importer"]), ['width']].values[0] >= 10.0:
-            return
         else:
             return 0.05
 
     # Calculate styling
     current_year = 0
     Unknown_locations = 0
-    df.to_csv("df.csv", sep='\t')
+
     for index, row in df.iterrows():
         if row["Importer"] != "Unknown" and row["Exporter"] != "Unknown":
             if current_year != row['Year']:
                 current_year = row['Year']
                 shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['occurrences']] += 1
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
             # Add width and opacity
             # print("Year: {}".format(row['Year']))
             # idx = pd.IndexSlice
@@ -274,26 +271,22 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
             # print("Looking for: {} and {}".format(row["Exporter"], row["Importer"]))
             # print(shipment_traces.loc[idx[row["Exporter"], row["Importer"]], :])
-            print(shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']].values[0])
+            #print(shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']].values[0])
 
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']] += 0.1
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
+            # shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']] += 0.1
+            # shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
             # print("Updated width/opaq for {0} and {1}: {2}".format(row["Exporter"], row["Importer"], wid_opq))
         else:
             Unknown_locations += 1
 
     print(f"Null Locations: {Unknown_locations}")
     shipment_traces = shipment_traces.reset_index()
-    # print("======================")
-    # print("Length before dropping 0: " + str(len(shipment_traces)))
-    # print("======================")
-    # print("Records with 0.0 widths (They shouldn't be there)")
-    # print(shipment_traces[shipment_traces['width'] == 0.0])
-    # shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
-    # print("======================")
-    # print("Length After dropping 0 rows: " + str(len(shipment_traces)))
-    # print("======================")
-    # print(shipment_traces)
+    occurrences_max = shipment_traces.loc[shipment_traces["occurrences"].idxmax()].values[2]
+    shipment_traces["width"] = round((shipment_traces["occurrences"]/occurrences_max) * 10, 2)
+    shipment_traces["width"].clip(1, axis=0, inplace=True)
+    shipment_traces.to_csv("df.csv", sep='\t')
+    shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
+
 
     with urlopen(
             'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json') as response:
@@ -310,8 +303,8 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
                                             right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
-    print("====================== After Merge with GeoJSON")
-    print(shipment_traces)
+    # print("====================== After Merge with GeoJSON")
+    # print(shipment_traces.to_string())
 
     # df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Importer',
     #               right_on='alpha2').drop(columns=['alpha2']).rename(
@@ -322,6 +315,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     # https://plotly.com/python/reference/scattergeo/
     # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
+    # https://plotly.com/r/reference/scattergeo/
     flight_paths = []
     for i in range(len(shipment_traces)):
         map_fig.add_trace(
@@ -332,9 +326,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
                 mode='lines',
                 line=dict(
                     width=shipment_traces["width"][i],
-                    # opacity=shipment_traces["width"][i],
-                    color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i])),
-                # opacity=float(df['cnt'][i]) / float(df['cnt'].max()),
+                    color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
             )
         )
     end = time.time()
