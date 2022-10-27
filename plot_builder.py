@@ -227,7 +227,6 @@ def drawOnMapGraph(importer, exporter, map_fig):
 def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig):
     import time
 
-
     start = time.time()
     df = getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
@@ -237,87 +236,104 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     # Calculate Lines for Map
     # Setup MultiIndex DF
-    df2 = df.loc[:, ["Exporter", "Importer"]]
+    df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["width"] = 0.0
     df2["opacity"] = 0.0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
+    # shipment_traces = df2.groupby(["Exporter", "Importer"])
+
+    print("Length before adding widths and Opacity: " + str(len(shipment_traces)))
+
+    def opacity_decrease(x):
+        if x > 0.2:
+            return x - 0.05
+        else:
+            return 0.05
+
+    def width_increase(df, row):
+        if df.loc[(row["Exporter"], row["Importer"]), ['width']].values[0] >= 10.0:
+            return
+        else:
+            return 0.05
 
     # Calculate styling
     current_year = 0
     Unknown_locations = 0
+    df.to_csv("df.csv", sep='\t')
     for index, row in df.iterrows():
-        if row["Importer"] == "Unknown":
-            Unknown_locations += 1
-            break
-        if row["Exporter"] == "Unknown":
-            Unknown_locations += 1
-            break
-        if current_year != row['Year']:
-            current_year = row['Year']
-            year_passed = True
-        # Add width and opacity
-        print(row["Exporter"], row["Importer"], " Let's add that width and opacity!")
-        print(shipment_traces.at[(row["Exporter"], row["Importer"]), "width"])
-        shipment_traces.at[(row["Exporter"], row["Importer"]), "width"] += 1.0
-        print(shipment_traces.at[(row["Exporter"], row["Importer"]), "width"])
+        if row["Importer"] != "Unknown" and row["Exporter"] != "Unknown":
+            if current_year != row['Year']:
+                current_year = row['Year']
+                shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
+            # Add width and opacity
+            # print("Year: {}".format(row['Year']))
+            # idx = pd.IndexSlice
+            # wid_opq = shipment_traces.loc[idx[row["Exporter"], row["Importer"]], :]
+            # print("Current width/opaq for {0} and {1}: {2}".format(row["Exporter"], row["Importer"], wid_opq))
 
-    # print(f"Null Locations: {Unknown_locations}")
-    # Remove shipments with no data
+            # print("Looking for: {} and {}".format(row["Exporter"], row["Importer"]))
+            # print(shipment_traces.loc[idx[row["Exporter"], row["Importer"]], :])
+            print(shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']].values[0])
+
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']] += 0.1
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
+            # print("Updated width/opaq for {0} and {1}: {2}".format(row["Exporter"], row["Importer"], wid_opq))
+        else:
+            Unknown_locations += 1
+
+    print(f"Null Locations: {Unknown_locations}")
     shipment_traces = shipment_traces.reset_index()
-    print("====================== Length before dropping 0")
-    print(len(shipment_traces))
-    print("====================== 0.0 widths")
-    print(shipment_traces[shipment_traces['width'] == 0.0])
-    shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
-    #shipment_traces = shipment_traces[shipment_traces['opacity'] != 0.0]
-    print("====================== Length After dropping 0 rows")
-    print(len(shipment_traces))
-    print("====================== Dataframe")
-    print(shipment_traces)
-
-
+    # print("======================")
+    # print("Length before dropping 0: " + str(len(shipment_traces)))
+    # print("======================")
+    # print("Records with 0.0 widths (They shouldn't be there)")
+    # print(shipment_traces[shipment_traces['width'] == 0.0])
+    # shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
+    # print("======================")
+    # print("Length After dropping 0 rows: " + str(len(shipment_traces)))
+    # print("======================")
+    # print(shipment_traces)
 
     with urlopen(
             'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json') as response:
         countries_json = json.load(response)
     countries_json = pd.DataFrame(countries_json["ref_country_codes"])
 
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Importer',
-                  right_on='alpha2').drop(columns=['alpha2']).rename(
+    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
+                                            left_on='Importer',
+                                            right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
 
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Exporter',
-                  right_on='alpha2').drop(columns=['alpha2']).rename(
+    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
+                                            left_on='Exporter',
+                                            right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
     print("====================== After Merge with GeoJSON")
     print(shipment_traces)
 
-
-
-    df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Importer',
-                  right_on='alpha2').drop(columns=['alpha2']).rename(
-        columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
-    df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Exporter',
-                  right_on='alpha2').drop(columns=['alpha2']).rename(
-        columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
-
-    end = time.time()
-    elapsed_time = end - start
-    print(f"Timer: {elapsed_time}")
+    # df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Importer',
+    #               right_on='alpha2').drop(columns=['alpha2']).rename(
+    #     columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
+    # df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Exporter',
+    #               right_on='alpha2').drop(columns=['alpha2']).rename(
+    #     columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
     # https://plotly.com/python/reference/scattergeo/
     # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
     flight_paths = []
-    for i in range(len(df)):
+    for i in range(len(shipment_traces)):
         map_fig.add_trace(
             go.Scattergeo(
                 locationmode="ISO-3",
-                lon=[df['exp_longitude'][i], df['imp_longitude'][i]],
-                lat=[df['exp_latitude'][i], df['imp_latitude'][i]],
+                lon=[shipment_traces["exp_longitude"][i], shipment_traces["imp_longitude"][i]],
+                lat=[shipment_traces["exp_latitude"][i], shipment_traces["imp_latitude"][i]],
                 mode='lines',
-                line=dict(width=1, color='red'),
+                line=dict(
+                    width=shipment_traces["width"][i],
+                    # opacity=shipment_traces["width"][i],
+                    color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i])),
                 # opacity=float(df['cnt'][i]) / float(df['cnt'].max()),
             )
         )
