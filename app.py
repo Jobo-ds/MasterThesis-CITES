@@ -225,7 +225,7 @@ def temporal_buttons(temporal_start, temporal_end):
     elif ctx.triggered_id == "temporal_end":
         return 2022
     else:
-        return 1999
+        return 1979
 
 
 """
