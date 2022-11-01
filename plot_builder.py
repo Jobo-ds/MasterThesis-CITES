@@ -6,6 +6,7 @@ import database_scripts as db
 import sqlite3
 import json
 from urllib.request import urlopen
+import math
 from itertools import product
 import numpy as np
 
@@ -232,19 +233,16 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     df.fillna(value="Unknown", axis="index", inplace=True)
     # print(df.isnull().values.any())
     # x = input('Press Enter:')
-    print(len(df))
 
     # Calculate Lines for Map
-    # Setup MultiIndex DF
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["occurrences"] = 0
     df2["width"] = 0.0
     df2["opacity"] = 0.0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
-    # shipment_traces = df2.groupby(["Exporter", "Importer"])
 
-    print("Length before adding widths and Opacity: " + str(len(shipment_traces)))
+
 
     def opacity_decrease(x):
         if x > 0.3:
@@ -263,33 +261,19 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
                 shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['occurrences']] += 1
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
-            # Add width and opacity
-            # print("Year: {}".format(row['Year']))
-            # idx = pd.IndexSlice
-            # wid_opq = shipment_traces.loc[idx[row["Exporter"], row["Importer"]], :]
-            # print("Current width/opaq for {0} and {1}: {2}".format(row["Exporter"], row["Importer"], wid_opq))
-
-            # print("Looking for: {} and {}".format(row["Exporter"], row["Importer"]))
-            # print(shipment_traces.loc[idx[row["Exporter"], row["Importer"]], :])
-            #print(shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']].values[0])
-
-            # shipment_traces.loc[(row["Exporter"], row["Importer"]), ['width']] += 0.1
-            # shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
-            # print("Updated width/opaq for {0} and {1}: {2}".format(row["Exporter"], row["Importer"], wid_opq))
         else:
             Unknown_locations += 1
 
     print(f"Null Locations: {Unknown_locations}")
     shipment_traces = shipment_traces.reset_index()
     occurrences_max = shipment_traces.loc[shipment_traces["occurrences"].idxmax()].values[2]
-    shipment_traces["width"] = round((shipment_traces["occurrences"]/occurrences_max) * 10, 2)
+    shipment_traces["width"] = round((shipment_traces["occurrences"] / occurrences_max) * 10, 2)
     shipment_traces["width"].clip(1, axis=0, inplace=True)
     shipment_traces.to_csv("df.csv", sep='\t')
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
 
-
-    with urlopen(
-            'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json') as response:
+    json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
+    with urlopen(json_file) as response:
         countries_json = json.load(response)
     countries_json = pd.DataFrame(countries_json["ref_country_codes"])
 
@@ -303,15 +287,34 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
                                             right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
-    # print("====================== After Merge with GeoJSON")
-    # print(shipment_traces.to_string())
+    shipment_traces["mid_latitude"] = 0.0
+    shipment_traces["mid_longitude"] = 0.0
 
-    # df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Importer',
-    #               right_on='alpha2').drop(columns=['alpha2']).rename(
-    #     columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
-    # df = df.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left', left_on='Exporter',
-    #               right_on='alpha2').drop(columns=['alpha2']).rename(
-    #     columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
+    def calculate_midpoint(row):
+        # pi = lat
+        # lamba = lon
+        lat1 = row["exp_latitude"]
+        lon1 = row["exp_longitude"]
+        lat2 = row["imp_latitude"]
+        lon2 = row["imp_longitude"]
+        print(lat1)
+        print(lon1)
+        print(lat2)
+        print(lon2)
+        Bx = math.cos(lat2) * math.cos(lon2 - lon1)
+        By = math.cos(lat2) * math.sin(lon2 - lon1)
+        lat3 = math.atan2(math.sin(lat1) + math.sin(lat2),
+                          math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By))
+        lon3 = lon1 + math.atan2(By, math.cos(lat1) + Bx)
+        print(lat3, lon3)
+        return lat3, lon3
+
+    # shipment_traces = df2.set_index(['Exporter', 'Importer'])
+    # shipment_traces.sort_index(level=0, inplace=True)
+    shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
+    shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
+
+    print(shipment_traces.to_string())
 
     # https://plotly.com/python/reference/scattergeo/
     # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
@@ -321,8 +324,10 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
         map_fig.add_trace(
             go.Scattergeo(
                 locationmode="ISO-3",
-                lon=[shipment_traces["exp_longitude"][i], shipment_traces["imp_longitude"][i]],
-                lat=[shipment_traces["exp_latitude"][i], shipment_traces["imp_latitude"][i]],
+                lon=([shipment_traces["exp_longitude"][i], shipment_traces["mid_longitude"][i],
+                      shipment_traces["imp_longitude"][i]]),
+                lat=([shipment_traces["exp_latitude"][i], -shipment_traces["mid_latitude"][i],
+                      shipment_traces["imp_latitude"][i]]),
                 mode='lines',
                 line=dict(
                     width=shipment_traces["width"][i],
