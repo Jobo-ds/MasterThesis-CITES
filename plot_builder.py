@@ -160,26 +160,12 @@ def buildLineDiagram(input_attribute, temporal_input, filter_terms, filter_purpo
 
 
 """
-Build a map graph
+Build an empty map graph
 """
 
 
-def buildMapGraph():
-    # Setup Map
-    with urlopen(
-            'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/countries.geojson') as response:
-        geojson = json.load(response)
-
-    # Documentation Links
-    # https://plotly.com/python/maps/
-    # https://plotly.github.io/plotly.py-docs/generated/plotly.express.choropleth.html
-    # https://plotly.com/python/reference/layout/geo/
-
-    fig_map = px.line_geo(
-        locationmode="ISO-3",
-        geojson=geojson,
-        featureidkey="id",
-        fitbounds="locations", )
+def buildEmptyMapGraph():
+    fig_map = go.Figure(go.Scattergeo())
     fig_map.update_geos(
         showcoastlines=True, coastlinecolor="#dcdcce",
         showland=True, landcolor="#dfe1d2",
@@ -194,6 +180,11 @@ def buildMapGraph():
         showlegend=False
     )
     return fig_map
+
+
+"""
+Get shipment data for map graph and transform the data
+"""
 
 
 def getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn):
@@ -216,25 +207,22 @@ def getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source,
             sql = sql + " AND " + sql_source + " " + sql_end
         df = db.runQuery(sql, conn)
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'getting data from temp table' in buildLineDiagram")
+        print(f"The error '{err}' occurred while 'getting data from temp table' in getDataMapGraph")
 
     return df
 
 
-def drawOnMapGraph(importer, exporter, map_fig):
-    print("Hello")
+"""
+Update the map figure with traces
+"""
 
 
 def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig):
     import time
-
     start = time.time()
+    # Setup dataframe and find connections to trace.
     df = getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
-    # print(df.isnull().values.any())
-    # x = input('Press Enter:')
-
-    # Calculate Lines for Map
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"] = 0
     df2["width"] = 0.0
@@ -242,16 +230,15 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
 
+    # Calculate styling of connections
     def opacity_decrease(x):
         if x > 0.3:
             return x - 0.05
         else:
             return 0.05
 
-    # Calculate styling
     current_year = 0
     Unknown_locations = 0
-
     for index, row in df.iterrows():
         if row["Importer"] != "Unknown" and row["Exporter"] != "Unknown":
             if current_year != row['Year']:
@@ -262,13 +249,15 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
         else:
             Unknown_locations += 1
 
-    print(f"Null Locations: {Unknown_locations}")
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
     shipment_traces["width"] = round((shipment_traces["count"] / count_max) * 10, 2)
     shipment_traces["width"].clip(1, axis=0, inplace=True)
-    shipment_traces.to_csv("df.csv", sep='\t')
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
+    shipment_traces["mid_latitude"] = 0.0
+    shipment_traces["mid_longitude"] = 0.0
+    shipment_traces["description"] = shipment_traces["Exporter"] + " -> " + shipment_traces["Importer"] + "<br>" + "# Shipments: " + shipment_traces[
+            "count"].astype(str) + "<br>"
 
     json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
     with urlopen(json_file) as response:
@@ -276,26 +265,21 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     countries_json = pd.DataFrame(countries_json["ref_country_codes"])
 
     shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Importer',
-                                            right_on='alpha2').drop(columns=['alpha2']).rename(
+                                            left_on='Importer', right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
 
     shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Exporter',
-                                            right_on='alpha2').drop(columns=['alpha2']).rename(
+                                            left_on='Exporter', right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
-    shipment_traces["mid_latitude"] = 0.0
-    shipment_traces["mid_longitude"] = 0.0
-
     def calculate_midpoint(row):
+        # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
         def toRadians(val):
             return val * math.pi / 180
 
         def toDegrees(val):
             return val * 180 / math.pi
 
-        # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
         lat1 = toRadians(row["exp_latitude"])
         lon1 = toRadians(row["exp_longitude"])
         lat2 = toRadians(row["imp_latitude"])
@@ -305,7 +289,6 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
         lat3 = toDegrees(math.atan2(math.sin(lat1) + math.sin(lat2),
                                     math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
         lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx))
-
         return lat3, lon3
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
@@ -313,51 +296,53 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     print(shipment_traces.to_string())
 
-    hovertemplate = ('Exporter: %{customdata}<br>' +
-                     'Importer: %{customdata[1]}<br>' +
-                     'Occurences: %{customdata[2]}<br>' +
-                     'Width: %{customdata[3]}<br>' +
-                     'Mid Lat: %{customdata[4]}<br>' +
-                     'Mid Lon: %{customdata[5]}<br>')
-
-    # https://plotly.com/python/reference/scattergeo/
-    # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
-    # https://plotly.com/r/reference/scattergeo/
+    # Add traces to map figure
     for i in range(len(shipment_traces)):
         exp_lat, exp_lon = shipment_traces["exp_latitude"][i], shipment_traces["exp_longitude"][i]
         mid_lat, mid_lon = shipment_traces["mid_latitude"][i], shipment_traces["mid_longitude"][i]
         imp_lat, imp_lon = shipment_traces["imp_latitude"][i], shipment_traces["imp_longitude"][i]
-        trace_title = shipment_traces["Exporter"][i] + " -> " + shipment_traces["Importer"][i]
-        exporter, importer = shipment_traces["Exporter"][i], shipment_traces["Importer"][i]
-        count_str = str(shipment_traces["count"][i])
         map_fig.add_trace(
             go.Scattergeo(
-                locationmode="ISO-3",
-                lon=([exp_lon, mid_lon, imp_lon]),
                 lat=([exp_lat, mid_lat, imp_lat]),
-                mode="markers+lines",
-                name=trace_title,
-                customdata=[exporter, importer],
-                hovertemplate='<br>'.join([
-                    'Exporter: %{customdata[0]}',
-                    'Importer: %{customdata[1]}', ]),
+                lon=([exp_lon, mid_lon, imp_lon]),
+                mode="lines",
+                hoverinfo="skip",
                 line=dict(
                     width=shipment_traces["width"][i],
                     color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
+            )),
+    map_fig.add_trace(
+        go.Scattergeo(
+            lat=shipment_traces["mid_latitude"],
+            lon=shipment_traces["mid_longitude"],
+            text=shipment_traces["description"],
+            mode="markers",
+            hoverinfo='text',
+            marker=dict(
+                size=12,
+                symbol="circle",
+                opacity=shipment_traces["opacity"],
+                cauto=False,
+                color="white",
+                line=dict(
+                    width=2,
+                    color="lightgray"
+                ),
             )
-        )
-        map_fig.update_layout(
-            hoverlabel=dict(
-                bgcolor="white",
-                font_size=16,
-                font_family="Rockwell"
-            )
-        )
-        end = time.time()
-        elapsed_time = end - start
-        print(f"Timer: {elapsed_time}")
 
-        return map_fig
+        )),
+    # map_fig.update_layout(
+    #     hoverlabel=dict(
+    #         bgcolor="white",
+    #         font_size=16,
+    #         font_family="Rockwell"
+    #     )
+    # )
+    end = time.time()
+    elapsed_time = end - start
+    print(f"Timer: {elapsed_time}")
+    return map_fig
 
-    def TemporalControl(conn):
-        print("Hello")
+
+def TemporalControl(conn):
+    print("Hello")

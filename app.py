@@ -282,7 +282,7 @@ Spatial Callback
     Input("filter_purpose", "value"),
     Input("filter_source", "value"), prevent_initial_call=True)
 def buildMap(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    map_fig = pltbld.buildMapGraph()
+    map_fig = pltbld.buildEmptyMapGraph()
     map_fig = pltbld.updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig)
     return map_fig
 
