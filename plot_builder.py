@@ -236,7 +236,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     # Calculate Lines for Map
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
-    df2["occurrences"] = 0
+    df2["count"] = 0
     df2["width"] = 0.0
     df2["opacity"] = 0.0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
@@ -257,15 +257,15 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
             if current_year != row['Year']:
                 current_year = row['Year']
                 shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['occurrences']] += 1
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['count']] += 1
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
         else:
             Unknown_locations += 1
 
     print(f"Null Locations: {Unknown_locations}")
     shipment_traces = shipment_traces.reset_index()
-    occurrences_max = shipment_traces.loc[shipment_traces["occurrences"].idxmax()].values[2]
-    shipment_traces["width"] = round((shipment_traces["occurrences"] / occurrences_max) * 10, 2)
+    count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
+    shipment_traces["width"] = round((shipment_traces["count"] / count_max) * 10, 2)
     shipment_traces["width"].clip(1, axis=0, inplace=True)
     shipment_traces.to_csv("df.csv", sep='\t')
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
@@ -291,6 +291,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     def calculate_midpoint(row):
         def toRadians(val):
             return val * math.pi / 180
+
         def toDegrees(val):
             return val * 180 / math.pi
 
@@ -301,7 +302,8 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
         lon2 = toRadians(row["imp_longitude"])
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
-        lat3 = toDegrees(math.atan2(math.sin(lat1) + math.sin(lat2), math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
+        lat3 = toDegrees(math.atan2(math.sin(lat1) + math.sin(lat2),
+                                    math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
         lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx))
 
         return lat3, lon3
@@ -311,7 +313,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     print(shipment_traces.to_string())
 
-    hovertemplate = ('Exporter: %{customdata[0]}<br>' +
+    hovertemplate = ('Exporter: %{customdata}<br>' +
                      'Importer: %{customdata[1]}<br>' +
                      'Occurences: %{customdata[2]}<br>' +
                      'Width: %{customdata[3]}<br>' +
@@ -322,48 +324,40 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
     # https://plotly.com/r/reference/scattergeo/
     for i in range(len(shipment_traces)):
+        exp_lat, exp_lon = shipment_traces["exp_latitude"][i], shipment_traces["exp_longitude"][i]
+        mid_lat, mid_lon = shipment_traces["mid_latitude"][i], shipment_traces["mid_longitude"][i]
+        imp_lat, imp_lon = shipment_traces["imp_latitude"][i], shipment_traces["imp_longitude"][i]
+        trace_title = shipment_traces["Exporter"][i] + " -> " + shipment_traces["Importer"][i]
+        exporter, importer = shipment_traces["Exporter"][i], shipment_traces["Importer"][i]
+        count_str = str(shipment_traces["count"][i])
         map_fig.add_trace(
             go.Scattergeo(
                 locationmode="ISO-3",
-                lon=([shipment_traces["exp_longitude"][i], shipment_traces["mid_longitude"][i],
-                      shipment_traces["imp_longitude"][i]]),
-                lat=([shipment_traces["exp_latitude"][i], shipment_traces["mid_latitude"][i],
-                      shipment_traces["imp_latitude"][i]]),
+                lon=([exp_lon, mid_lon, imp_lon]),
+                lat=([exp_lat, mid_lat, imp_lat]),
                 mode="markers+lines",
-                customdata=shipment_traces[["Exporter", "Importer", "occurrences", "width", "mid_latitude", "mid_longitude"]],
+                name=trace_title,
+                customdata=[exporter, importer],
+                hovertemplate='<br>'.join([
+                    'Exporter: %{customdata[0]}',
+                    'Importer: %{customdata[1]}', ]),
                 line=dict(
                     width=shipment_traces["width"][i],
                     color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
-            ),
-        go.Scattergeo(
-            locationmode="ISO-3",
-            lon=([shipment_traces["exp_longitude"][i], shipment_traces["mid_longitude"][i],
-                  shipment_traces["imp_longitude"][i]]),
-            lat=([shipment_traces["exp_latitude"][i], shipment_traces["mid_latitude"][i],
-                  shipment_traces["imp_latitude"][i]]),
-            mode="markers+lines",
-            customdata=shipment_traces[
-                ["Exporter", "Importer", "occurrences", "width", "mid_latitude", "mid_longitude"]],
-            line=dict(
-                width=shipment_traces["width"][i],
-                color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
+            )
         )
-
+        map_fig.update_layout(
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=16,
+                font_family="Rockwell"
+            )
         )
-    map_fig.update_traces(hovertemplate=hovertemplate)
-    map_fig.update_layout(
-        hoverlabel=dict(
-            bgcolor="white",
-            font_size=16,
-            font_family="Rockwell"
-        )
-    )
-    end = time.time()
-    elapsed_time = end - start
-    print(f"Timer: {elapsed_time}")
+        end = time.time()
+        elapsed_time = end - start
+        print(f"Timer: {elapsed_time}")
 
-    return map_fig
+        return map_fig
 
-
-def TemporalControl(conn):
-    print("Hello")
+    def TemporalControl(conn):
+        print("Hello")
