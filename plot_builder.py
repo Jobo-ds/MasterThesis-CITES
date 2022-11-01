@@ -242,8 +242,6 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
 
-
-
     def opacity_decrease(x):
         if x > 0.3:
             return x - 0.05
@@ -291,92 +289,75 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces["mid_longitude"] = 0.0
 
     def calculate_midpoint(row):
-        # Python Implementation MidpointTo from: http://www.movable-type.co.uk/scripts/latlong.html
-
         def toRadians(val):
             return val * math.pi / 180
         def toDegrees(val):
             return val * 180 / math.pi
 
-        # pi = lat
-        # lamba = lon
-
-        # Define variables for formulas
-        lat1 = toRadians(row["exp_latitude"])
-        lon1 = toRadians(row["exp_longitude"])
-        lat2 = toRadians(row["imp_latitude"])
-        delta_lon = toRadians((row["imp_longitude"] - row["exp_longitude"]))
-
-        A = {
-            "x": math.cos(lat1),
-            "y": 0.0,
-            "z": math.sin(lat1)
-        }
-        B = {
-            "x": math.cos(lat2)*math.cos(delta_lon),
-            "y": math.cos(lat2)*math.sin(delta_lon),
-            "z": math.sin(lat2)
-        }
-        C = {
-            "x": A["x"] + B["x"],
-            "y": A["y"] + B["y"],
-            "z": A["z"] + B["z"]
-        }
-
-        lat3 = toDegrees(math.atan2(C["z"], math.sqrt(C["x"]*C["x"] + C["y"]*C["y"])))
-        lon3 = toDegrees(lon1 + math.atan2(C["y"], C["x"]))
-
-        return lat3, lon3
-
-    def calculate_midpoint_revised(row):
-        def toRadians(val):
-            return val * math.pi / 180
-        def toDegrees(val):
-            return val * 180 / math.pi
-
-        # http://www.movable-type.co.uk/scripts/latlong.html
-        # pi = lat
-        # lamba = lon
-        # Define variables for formulas, and convert them to radians. (degree * math.pi / 180)
+        # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
         lat1 = toRadians(row["exp_latitude"])
         lon1 = toRadians(row["exp_longitude"])
         lat2 = toRadians(row["imp_latitude"])
         lon2 = toRadians(row["imp_longitude"])
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
-        # Calculate midpoint and convert to degree again (radian * 180 / math.pi):
         lat3 = toDegrees(math.atan2(math.sin(lat1) + math.sin(lat2), math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
-        lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx) * 180 / math.pi)
-        #lon3 = (lon3 + 540)%360-180 # Normalized
+        lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx))
+
         return lat3, lon3
 
-    # shipment_traces = df2.set_index(['Exporter', 'Importer'])
-    # shipment_traces.sort_index(level=0, inplace=True)
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
-    shipment_traces["mid_latitude_old"] = shipment_traces.apply(lambda row: calculate_midpoint_revised(row)[0], axis=1)
-    shipment_traces["mid_longitude_old"] = shipment_traces.apply(lambda row: calculate_midpoint_revised(row)[1], axis=1)
 
     print(shipment_traces.to_string())
+
+    hovertemplate = ('Exporter: %{customdata[0]}<br>' +
+                     'Importer: %{customdata[1]}<br>' +
+                     'Occurences: %{customdata[2]}<br>' +
+                     'Width: %{customdata[3]}<br>' +
+                     'Mid Lat: %{customdata[4]}<br>' +
+                     'Mid Lon: %{customdata[5]}<br>')
 
     # https://plotly.com/python/reference/scattergeo/
     # https://plotly.github.io/plotly.py-docs/generated/plotly.graph_objects.Scattergeo.html
     # https://plotly.com/r/reference/scattergeo/
-    flight_paths = []
     for i in range(len(shipment_traces)):
         map_fig.add_trace(
             go.Scattergeo(
                 locationmode="ISO-3",
                 lon=([shipment_traces["exp_longitude"][i], shipment_traces["mid_longitude"][i],
                       shipment_traces["imp_longitude"][i]]),
-                lat=([shipment_traces["exp_latitude"][i], -shipment_traces["mid_latitude"][i],
+                lat=([shipment_traces["exp_latitude"][i], shipment_traces["mid_latitude"][i],
                       shipment_traces["imp_latitude"][i]]),
-                mode='lines',
+                mode="markers+lines",
+                customdata=shipment_traces[["Exporter", "Importer", "occurrences", "width", "mid_latitude", "mid_longitude"]],
                 line=dict(
                     width=shipment_traces["width"][i],
                     color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
-            )
+            ),
+        go.Scattergeo(
+            locationmode="ISO-3",
+            lon=([shipment_traces["exp_longitude"][i], shipment_traces["mid_longitude"][i],
+                  shipment_traces["imp_longitude"][i]]),
+            lat=([shipment_traces["exp_latitude"][i], shipment_traces["mid_latitude"][i],
+                  shipment_traces["imp_latitude"][i]]),
+            mode="markers+lines",
+            customdata=shipment_traces[
+                ["Exporter", "Importer", "occurrences", "width", "mid_latitude", "mid_longitude"]],
+            line=dict(
+                width=shipment_traces["width"][i],
+                color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
         )
+
+        )
+    map_fig.update_traces(hovertemplate=hovertemplate)
+    map_fig.update_layout(
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=16,
+            font_family="Rockwell"
+        )
+    )
     end = time.time()
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
