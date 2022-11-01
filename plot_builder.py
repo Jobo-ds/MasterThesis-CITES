@@ -291,22 +291,20 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces["mid_longitude"] = 0.0
 
     def calculate_midpoint(row):
+        # http://www.movable-type.co.uk/scripts/latlong.html
         # pi = lat
         # lamba = lon
-        lat1 = row["exp_latitude"]
-        lon1 = row["exp_longitude"]
-        lat2 = row["imp_latitude"]
-        lon2 = row["imp_longitude"]
-        print(lat1)
-        print(lon1)
-        print(lat2)
-        print(lon2)
+        # Define variables for formulas, and convert them to radians. (degree * math.pi / 180)
+        lat1 = row["exp_latitude"] * math.pi / 180
+        lon1 = row["exp_longitude"] * math.pi / 180
+        lat2 = row["imp_latitude"] * math.pi / 180
+        lon2 = row["imp_longitude"] * math.pi / 180
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
-        lat3 = math.atan2(math.sin(lat1) + math.sin(lat2),
-                          math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By))
-        lon3 = lon1 + math.atan2(By, math.cos(lat1) + Bx)
-        print(lat3, lon3)
+        # Calculate midpoint and convert to degree again (radian * 180 / math.pi):
+        lat3 = math.atan2(math.sin(lat1) + math.sin(lat2), math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)) * 180 / math.pi
+        lon3 = lon1 + math.atan2(By, math.cos(lat1) + Bx) * 180 / math.pi
+        #lon3 = (lon3 + 540)%360-180 # Normalized
         return lat3, lon3
 
     # shipment_traces = df2.set_index(['Exporter', 'Importer'])
