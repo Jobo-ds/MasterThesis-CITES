@@ -36,6 +36,16 @@ def alpha3_to_Name(value):
                     return co.name
     return value + "(Name Not Found)"
 
+def alpha2_to_Name(value):
+    for co in list(pycountry.countries):
+        if value in co.alpha_2:
+            return co.name
+        else:
+            for co in list(pycountry.historic_countries):
+                if value in co.alpha_2:
+                    return co.name
+    return value + "(Name Not Found)"
+
 
 """
 Create dictionaries for filters from database results
@@ -156,7 +166,10 @@ def buildLineDiagram(input_attribute, temporal_input, filter_terms, filter_purpo
             x=0.5
         )
     )
-    return fig
+    top_term = df["Term"].mode().tolist()
+    top_term = [term.capitalize() for term in top_term]
+    top_term = ", ".join(top_term)
+    return fig, df["count(Term)"].sum(), top_term
 
 
 """
@@ -227,6 +240,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     df2["count"] = 0
     df2["width"] = 0.0
     df2["opacity"] = 0.0
+    df2["last_shipment"] = 0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
 
@@ -246,6 +260,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
                 shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['count']] += 1
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['last_shipment']] = current_year
         else:
             Unknown_locations += 1
 
@@ -256,8 +271,7 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
     shipment_traces["mid_latitude"] = 0.0
     shipment_traces["mid_longitude"] = 0.0
-    shipment_traces["description"] = shipment_traces["Exporter"] + " -> " + shipment_traces["Importer"] + "<br>" + "# Shipments: " + shipment_traces[
-            "count"].astype(str) + "<br>"
+
 
     json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
     with urlopen(json_file) as response:
@@ -291,10 +305,22 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
         lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx))
         return lat3, lon3
 
+    def rowAlphaToName(row, col):
+        return alpha2_to_Name(row[col])
+
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
+    shipment_traces["Importer_full"] = shipment_traces.apply(lambda row: rowAlphaToName(row, "Importer"), axis=1)
+    shipment_traces["Exporter_full"] = shipment_traces.apply(lambda row: rowAlphaToName(row, "Exporter"), axis=1)
+    shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" +\
+                                     "<b>Importer</b>: " + shipment_traces["Importer_full"] + "<br>" + \
+                                     "——————————" + "<br>"\
+                                     "<b># Shipments</b>: " + shipment_traces["count"].astype(str) + "<br>" +\
+                                     "<b>Last Shipments</b>: " + shipment_traces["last_shipment"].astype(str)
 
-    print(shipment_traces.to_string())
+    # Merge connections that go both directions (keeping the highest width, and opacity)
+
+    #print(shipment_traces.to_string())
 
     # Add traces to map figure
     for i in range(len(shipment_traces)):
@@ -331,13 +357,15 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
             )
 
         )),
-    # map_fig.update_layout(
-    #     hoverlabel=dict(
-    #         bgcolor="white",
-    #         font_size=16,
-    #         font_family="Rockwell"
-    #     )
-    # )
+    map_fig.update_layout(
+        hoverlabel=dict(
+            bgcolor="white",
+            bordercolor="black",
+            font_size=12,
+            font_family="Verdana",
+            align="left",
+        )
+    )
     end = time.time()
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")

@@ -55,12 +55,28 @@ header_info = dbc.Row([
 
 Accum_data = dbc.Card(
     [
-        html.Div(
-            [
-                html.Div(html.H3("Accum. Data"
-                                 , style={"text-align": "center"})),
-            ]
-        ),
+        dbc.Row(html.H5("Data Overview", style={"text-align": "center"}), ),
+        dbc.Row([
+            dbc.Col(html.P("Total Shipments:"), md=7),
+            dbc.Col(html.P("...", id="total_shipments"), md=5)
+        ]),
+        dbc.Row([
+            dbc.Col(html.P("Unspecified Shipments:"), md=7),
+            dbc.Col(html.P("...", id="unspec_shipments"), md=5)
+        ]),
+        dbc.Row([
+            dbc.Col(html.P("Top Term:"), md=7),
+            dbc.Col(html.P("...", id="top_term"), md=5)
+        ]),
+        dbc.Row([
+            dbc.Col(html.P("Top Purpose:"), md=7),
+            dbc.Col(html.P("...", id="top_purpose"), md=5)
+        ]),
+        dbc.Row([
+            dbc.Col(html.P("Top Source:"), md=7),
+            dbc.Col(html.P("...", id="top_source"), md=5)
+        ]),
+        dbc.Row(html.H5("Top 5 Connections", style={"text-align": "center"}), ),
     ],
     body=True,
 )
@@ -69,51 +85,31 @@ Plot_1 = dbc.Card(
     [
         dbc.Row(html.H5("Term type per trade", style={"text-align": "center"}), ),
         dbc.Row([
-            dcc.Graph(id="plot_1_graph"),
+            dcc.Loading(children=dcc.Graph(id="plot_1_graph"), type="default", color="white",
+                        parent_className="loading_wrapper")
         ])
-    ],
-    body=True,
-)
-
-Plot_2 = dbc.Card(
-    [
-        html.Div(
-            [
-                html.Div(html.H3("Plot_2"
-                                 , style={"text-align": "center"})),
-            ]
-        ),
     ],
     body=True,
 )
 
 Plot_3 = dbc.Card(
     [
-        html.Div(
-            [
-                html.Div(html.H3("Plot_3"
-                                 , style={"text-align": "center"})),
-            ]
-        ),
+        dbc.Row(html.H5("Total Quantities of Terms", style={"text-align": "center"}), ),
     ],
     body=True,
 )
 
 Plot_4 = dbc.Card(
     [
-        html.Div(
-            [
-                html.Div(html.H3("Plot_4"
-                                 , style={"text-align": "center"})),
-            ]
-        ),
+        dbc.Row(html.H5("Source or Purpose Plot", style={"text-align": "center"}), ),
     ],
     body=True,
 )
 
 spatial_map = html.Div(
     [
-        dcc.Graph(id="spatial_map"),
+        dcc.Loading(children=dcc.Graph(id="spatial_map"), type="default", color="white",
+                    parent_className="loading_wrapper")
     ]
     , style={"margin": "auto auto"})
 
@@ -121,9 +117,15 @@ temporal_control = dbc.Card(
     dbc.InputGroup(
         [
             dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
+            dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
+                       style={"margin-left": "-5px"}),
             dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
-                      min=1979, max=2022, style={"width": "150px", "margin-left": "-5px"}),
-            dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end"),
+                      min=1979, max=2022,
+                      style={"width": "100px", "margin-left": "-5px",
+                             }, debounce=True),
+            dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
+            dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
+                       style={"margin-left": "-5px"}),
             dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
                        style={"margin-left": "-5px"}),
         ])
@@ -176,12 +178,14 @@ app.layout = dbc.Container(
             align="center",
         ),
         # Data
+        dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
         dbc.Row(
             [
                 dbc.Col(
                     [
                         dbc.Row([dbc.Col(Plot_1, md=7), dbc.Col(Accum_data, md=5)]),
-                        dbc.Row([dbc.Col(Plot_3, md=6), dbc.Col(Plot_4, md=6)]),
+                        dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
+                        dbc.Row([dbc.Col(Plot_3, md=7), dbc.Col(Plot_4, md=5)]),
                     ]
                     , md=6)
                 ,
@@ -193,7 +197,7 @@ app.layout = dbc.Container(
                     ]
                     , md=6)
             ],
-            align="center",
+            align="start", justify="center",
         ),
     ],
     fluid=True
@@ -217,13 +221,20 @@ Temporal Callbacks
 
 @app.callback(
     Output("temporal_input", "value"),
+    Input("temporal_input", "value"),
     Input("temporal_start", "n_clicks"),
+    Input("temporal_plus", "n_clicks"),
+    Input("temporal_minus", "n_clicks"),
     Input("temporal_end", "n_clicks"))
-def temporal_buttons(temporal_start, temporal_end):
+def temporal_buttons(temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
     if ctx.triggered_id == "temporal_start":
         return 1979
     elif ctx.triggered_id == "temporal_end":
         return 2022
+    elif ctx.triggered_id == "temporal_plus":
+        return temporal_input + 1
+    elif ctx.triggered_id == "temporal_minus":
+        return temporal_input - 1
     else:
         return 1979
 
@@ -259,6 +270,8 @@ Plot_1 Callback
 
 @app.callback(
     Output("plot_1_graph", "figure"),
+    Output("total_shipments", "children"),
+    Output("top_term", "children"),
     Input("search_hidden_div", "children"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
