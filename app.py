@@ -17,11 +17,7 @@ Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
 
-"""
-Prepare initial data
-"""
-
-db.build_species_plus_table("cites")
+# db.build_species_plus_table("cites")
 
 """
 Init DASH
@@ -36,8 +32,9 @@ Layout Components
 """
 header_search = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Corallus hortulanus", id="input_taxon"),
-        html.Div(id="search_hidden_div", style={"display": "none"})
+        dcc.Dropdown(db.build_dropdown_species(), "Tridacna gigas", id="input_taxon"),
+        html.Div(id="search_hidden_div", style={"display": "none"}),
+        dcc.Store(id='memory')
 
     ]
 )
@@ -210,10 +207,18 @@ Search Callback
 """
 
 
-@app.callback(Output("search_hidden_div", "children"), Input("input_taxon", "value"))
+@app.callback(
+    Output("search_hidden_div", "children"),
+    Output("memory", "data"),
+    Output("temporal_start", "children"),
+    Input("input_taxon", "value"))
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
-    return "search_active"
+    sql = "SELECT MIN(Year) from Temp.Taxon"
+    temporal_start = db.run_query(sql, conn)
+    memory = {}
+    memory["temporal_min"] = int(temporal_start['MIN(Year)'].values[0])
+    return "search_active", memory, memory["temporal_min"]
 
 
 """
@@ -223,14 +228,15 @@ Temporal Callbacks
 
 @app.callback(
     Output("temporal_input", "value"),
+    Input("memory", "data"),
     Input("temporal_input", "value"),
     Input("temporal_start", "n_clicks"),
     Input("temporal_plus", "n_clicks"),
     Input("temporal_minus", "n_clicks"),
     Input("temporal_end", "n_clicks"))
-def temporal_buttons(temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
+def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
     if ctx.triggered_id == "temporal_start":
-        return 1979
+        return memory["temporal_min"]
     elif ctx.triggered_id == "temporal_end":
         return 2022
     elif ctx.triggered_id == "temporal_plus":
@@ -238,7 +244,7 @@ def temporal_buttons(temporal_input, temporal_start, temporal_end, temporal_plus
     elif ctx.triggered_id == "temporal_minus":
         return temporal_input - 1
     else:
-        return 1979
+        return 1989
 
 
 """
@@ -292,12 +298,14 @@ Spatial Callback
 @app.callback(
     Output("spatial_map", "figure"),
     Input("search_hidden_div", "children"),
+    Input("input_taxon", "value"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
     Input("filter_purpose", "value"),
     Input("filter_source", "value"), prevent_initial_call=True)
-def build_map(activation, temporal_input, filter_terms, filter_purpose, filter_source):
+def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source):
     map_fig = pltbld.build_empty_map_graph()
+    map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
     map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig)
     return map_fig
 

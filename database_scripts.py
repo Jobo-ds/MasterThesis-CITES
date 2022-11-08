@@ -104,7 +104,6 @@ def build_main_df(input_taxon, conn, ctxtriggered_id):
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while 'creating temporary taxon table' in build_main_df")
 
-
 """
 Get all uniques in temporary table attribute
 """
@@ -337,50 +336,26 @@ def build_species_plus_table(database):
     df = pd.read_csv(speciesplus_csv, dtype=dtypes_dict)
     # Drop Cols
     drop_cols = ["Id", "Kingdom", "Family", "Phylum", "Class", "Order", "Genus", "Species", "Subspecies",
-                 "Scientific Name", "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes",]
+                 "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes",]
     df.drop(labels=drop_cols, axis="columns", inplace=True)
-    df.rename(columns={"NativeDistributionFullNames": "Native_Distribution", "Listed under": "Species"}, inplace=True)
-    df.fillna("NaN", inplace=True)
-    # Convert Countries to Alpha-2 ISO codes
-    targets = set(df.columns.to_numpy().tolist())
-    ignore_cols = {"Species", "Listing", "Party", "Full note"}
-    def add_iso_cols_to_row(row, col):
-        if row != "NaN" and col != "Nan":
-            countries = row.split(sep=",")
-            countries_iso = []
-            Unknown_countries = []
-            print(f"col: {col}")
-            print(f"row: {countries}")
-            for country in countries:
-                try:
-                    country = pycountry.countries.get(name=country)
-                    countries_iso.append(country.alpha_2)
-                except  AttributeError as err:
-                    print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
-                    Unknown_countries.append(country)
-            print(f"row: {countries_iso}")
-
-        return "Woohoo"
-
-    for col in targets.difference(ignore_cols):
-        print(col)
-        col_name = col + "_iso"
-        df[col_name] = df[col].apply(add_iso_cols_to_row, col=col)
-
+    df.rename(columns={"NativeDistributionFullNames": "Native_Distribution"}, inplace=True)
     conn = connect_sqlite3(database)
     table = "species_plus"
     drop_table_if_exist(conn, table)
     create_table_from_df(conn, table, df)
     # Sort Cols for nicety
     df = df.reindex(sorted(df.columns), axis=1)
-    first_column = df.pop("Species")
-    second_column = df.pop("Listing")
-    third_column = df.pop("Party")
-    df.insert(0, "Species", first_column)
-    df.insert(1, "Listing", second_column)
-    df.insert(2, "Party", third_column)
+    first_column = df.pop("Scientific Name")
+    second_column = df.pop("Listed under")
+    third_column = df.pop("Listing")
+    fourth_column = df.pop("Party")
+    df.insert(0, "Scientific Name", first_column)
+    df.insert(1, "Listed under", second_column)
+    df.insert(2, "Listing", third_column)
+    df.insert(3, "Party", fourth_column)
     # Insert Data to table database
     try:
         df.to_sql(table, conn, if_exists='replace', index=False)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while importing species + database")
+    print("Species+ Database creation complete")

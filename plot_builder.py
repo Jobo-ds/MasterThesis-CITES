@@ -197,6 +197,54 @@ def build_empty_map_graph():
 
 
 """
+Add Distributions to map_graph
+"""
+
+
+def add_distributions_to_map_graph(input_taxon, conn, map_fig):
+    print(input_taxon)
+    sql = "SELECT * FROM species_plus WHERE \"Scientific Name\"=\"{0}\"".format(input_taxon)
+    df = db.run_query(sql, conn)
+    if df.empty:
+        sql = "SELECT * FROM species_plus WHERE \"Listed under\"=\"{0}\"".format(input_taxon)
+        df = db.run_query(sql, conn)
+        if df.empty:
+            print("Unable to find species in Species+ database...")
+            return map_fig
+
+    def create_choropleth(country_string):
+        countries = country_string.split(sep=",")
+        countries_iso = []
+        Unknown_countries = []
+        for country in countries:
+            try:
+                country = pycountry.countries.get(name=country)
+                countries_iso.append(country.alpha_3)
+            except  AttributeError as err:
+                print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
+                Unknown_countries.append(country)
+        print(f"Result: {countries_iso}")
+        print(f"Unknown: {Unknown_countries}")
+
+        map_fig.add_trace(go.Choropleth(
+            locations=countries_iso,
+            z=100,
+            text="Test",
+            colorscale='Blues',
+            autocolorscale=False,
+            reversescale=True,
+            marker_line_color='darkgray',
+            marker_line_width=0.5,
+            colorbar_tickprefix='$',
+            colorbar_title='GDP<br>Billions US$'))
+        return map_fig
+    targets = set(df.columns.to_numpy().tolist())
+    ignore_cols = {"Scientific Name", "Listed under", "Listing", "Party", "Full note"}
+    for col in targets.difference(ignore_cols):
+        create_choropleth(str(df[col].values[0]))
+    return map_fig
+
+"""
 Update the map figure with traces
 """
 
@@ -208,10 +256,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
-    df2["count"] = 0
-    df2["width"] = 0.0
-    df2["opacity"] = 0.0
-    df2["last_shipment"] = 0
+    df2["count"], df2["width"], df2["opacity"], df2["last_shipment"] = 0, 0.0, 0.0, 0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
 
@@ -240,8 +285,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     shipment_traces["width"] = round((shipment_traces["count"] / count_max) * 10, 2)
     shipment_traces["width"].clip(1, axis=0, inplace=True)
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
-    shipment_traces["mid_latitude"] = 0.0
-    shipment_traces["mid_longitude"] = 0.0
+    shipment_traces["mid_latitude"], shipment_traces["mid_longitude"] = 0.0, 0.0
 
     json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
     with urlopen(json_file) as response:
@@ -271,7 +315,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
         lat3 = to_degress(math.atan2(math.sin(lat1) + math.sin(lat2),
-                                    math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
+                                     math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
         lon3 = to_degress(lon1 + math.atan2(By, math.cos(lat1) + Bx))
         return lat3, lon3
 
