@@ -36,6 +36,7 @@ def alpha3_to_Name(value):
                     return co.name
     return value + "(Name Not Found)"
 
+
 def alpha2_to_Name(value):
     for co in list(pycountry.countries):
         if value in co.alpha_2:
@@ -52,7 +53,7 @@ Create dictionaries for filters from database results
 """
 
 
-def createDictFilters(filter_list, outputfilter):
+def create_filters_dict(filter_list, outputfilter):
     if outputfilter == "Purpose":
         purpose_list = [{"label": "Breeding", "value": "B"},
                         {"label": "Educational", "value": "E"},
@@ -124,13 +125,13 @@ Build a line diagram of input data
 """
 
 
-def buildLineDiagram(input_attribute, temporal_input, filter_terms, filter_purpose, filter_source, conn):
+def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_purpose, filter_source, conn):
     try:
         sql_start = "SELECT {0}, Year, count({0}) FROM temp.taxon WHERE Year<={1} AND".format(input_attribute,
                                                                                               temporal_input)
-        sql_purpose = "Purpose IN {0}".format(db.ListToSQL(filter_purpose))
+        sql_purpose = "Purpose IN {0}".format(db.list_to_sql(filter_purpose))
         sql_purpose_null = "OR Purpose IS NULL"
-        sql_source = "Source IN {0}".format(db.ListToSQL(filter_source))
+        sql_source = "Source IN {0}".format(db.list_to_sql(filter_source))
         sql_source_null = "OR Source IS NULL"
         sql_end = "GROUP BY {0}, Year ORDER BY Year, {0}".format(input_attribute)
 
@@ -143,10 +144,10 @@ def buildLineDiagram(input_attribute, temporal_input, filter_terms, filter_purpo
         else:
             sql = sql + " AND " + sql_source
         sql = sql + " " + sql_end
-        df = db.runQuery(sql, conn)
+        df = db.run_query(sql, conn)
         df = df.loc[df['Term'].isin(filter_terms)].reset_index(drop=True)
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'getting data from temp table' in buildLineDiagram")
+        print(f"The error '{err}' occurred while 'getting data from temp table' in build_line_diagram")
     fig = px.line(
         df,
         y="count(" + input_attribute + ")",
@@ -177,7 +178,7 @@ Build an empty map graph
 """
 
 
-def buildEmptyMapGraph():
+def build_empty_map_graph():
     fig_map = go.Figure(go.Scattergeo())
     fig_map.update_geos(
         showcoastlines=True, coastlinecolor="#dcdcce",
@@ -196,45 +197,15 @@ def buildEmptyMapGraph():
 
 
 """
-Get shipment data for map graph and transform the data
-"""
-
-
-def getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn):
-    try:
-        sql_start = "SELECT Year, Importer, Exporter FROM temp.taxon WHERE Year<={0} AND Term IN {1} AND".format(
-            temporal_input, db.ListToSQL(filter_terms))
-        sql_purpose = "Purpose IN {0}".format(db.ListToSQL(filter_purpose))
-        sql_purpose_null = "OR Purpose IS NULL"
-        sql_source = "Source IN {0}".format(db.ListToSQL(filter_source))
-        sql_source_null = "OR Source IS NULL"
-        sql_end = "ORDER BY Year"
-
-        if "Unknown" in filter_purpose:
-            sql = sql_start + " (" + sql_purpose + " " + sql_purpose_null + ")"
-        else:
-            sql = sql_start + " " + sql_purpose
-        if "Unknown" in filter_source:
-            sql = sql + " AND (" + sql_source + " " + sql_source_null + ")" + " " + sql_end
-        else:
-            sql = sql + " AND " + sql_source + " " + sql_end
-        df = db.runQuery(sql, conn)
-    except sqlite3.Error as err:
-        print(f"The error '{err}' occurred while 'getting data from temp table' in getDataMapGraph")
-
-    return df
-
-
-"""
 Update the map figure with traces
 """
 
 
-def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig):
+def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig):
     import time
     start = time.time()
     # Setup dataframe and find connections to trace.
-    df = getDataMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"] = 0
@@ -272,7 +243,6 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     shipment_traces["mid_latitude"] = 0.0
     shipment_traces["mid_longitude"] = 0.0
 
-
     json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
     with urlopen(json_file) as response:
         countries_json = json.load(response)
@@ -288,39 +258,40 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
 
     def calculate_midpoint(row):
         # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
-        def toRadians(val):
+        def to_radians(val):
             return val * math.pi / 180
 
-        def toDegrees(val):
+        def to_degress(val):
             return val * 180 / math.pi
 
-        lat1 = toRadians(row["exp_latitude"])
-        lon1 = toRadians(row["exp_longitude"])
-        lat2 = toRadians(row["imp_latitude"])
-        lon2 = toRadians(row["imp_longitude"])
+        lat1 = to_radians(row["exp_latitude"])
+        lon1 = to_radians(row["exp_longitude"])
+        lat2 = to_radians(row["imp_latitude"])
+        lon2 = to_radians(row["imp_longitude"])
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
-        lat3 = toDegrees(math.atan2(math.sin(lat1) + math.sin(lat2),
+        lat3 = to_degress(math.atan2(math.sin(lat1) + math.sin(lat2),
                                     math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
-        lon3 = toDegrees(lon1 + math.atan2(By, math.cos(lat1) + Bx))
+        lon3 = to_degress(lon1 + math.atan2(By, math.cos(lat1) + Bx))
         return lat3, lon3
 
-    def rowAlphaToName(row, col):
+    def row_alpha2_to_name(row, col):
         return alpha2_to_Name(row[col])
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
-    shipment_traces["Importer_full"] = shipment_traces.apply(lambda row: rowAlphaToName(row, "Importer"), axis=1)
-    shipment_traces["Exporter_full"] = shipment_traces.apply(lambda row: rowAlphaToName(row, "Exporter"), axis=1)
-    shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" +\
+    shipment_traces["Importer_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Importer"), axis=1)
+    shipment_traces["Exporter_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Exporter"), axis=1)
+    shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" + \
                                      "<b>Importer</b>: " + shipment_traces["Importer_full"] + "<br>" + \
-                                     "——————————" + "<br>"\
-                                     "<b># Shipments</b>: " + shipment_traces["count"].astype(str) + "<br>" +\
+                                     "——————————" + "<br>" \
+                                                    "<b># Shipments</b>: " + shipment_traces["count"].astype(
+        str) + "<br>" + \
                                      "<b>Last Shipments</b>: " + shipment_traces["last_shipment"].astype(str)
 
     # Merge connections that go both directions (keeping the highest width, and opacity)
 
-    #print(shipment_traces.to_string())
+    # print(shipment_traces.to_string())
 
     # Add traces to map figure
     for i in range(len(shipment_traces)):
@@ -370,7 +341,3 @@ def updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, 
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
     return map_fig
-
-
-def TemporalControl(conn):
-    print("Hello")

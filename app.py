@@ -21,6 +21,8 @@ conn = db.connect_sqlite3("cites")
 Prepare initial data
 """
 
+db.build_species_plus_table("cites")
+
 """
 Init DASH
 """
@@ -34,7 +36,7 @@ Layout Components
 """
 header_search = html.Div(
     [
-        dcc.Dropdown(db.buildDropdownTaxon(), "Corallus hortulanus", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), "Corallus hortulanus", id="input_taxon"),
         html.Div(id="search_hidden_div", style={"display": "none"})
 
     ]
@@ -209,8 +211,8 @@ Search Callback
 
 
 @app.callback(Output("search_hidden_div", "children"), Input("input_taxon", "value"))
-def createTaxonTempTable(input_taxon):
-    db.buildMainDataframe(input_taxon, conn, ctx.triggered_id)
+def create_taxon_temp_table(input_taxon):
+    db.build_main_df(input_taxon, conn, ctx.triggered_id)
     return "search_active"
 
 
@@ -252,14 +254,14 @@ Filter Callbacks
     Output("filter_source", "options"),
     Output("filter_source", "value"),
     Input("search_hidden_div", "children"), prevent_initial_call=True)
-def populateFilters(activation):
-    Term_List = db.getUniquevalues("Term", conn)
-    Purpose_List = db.getUniquevalues("Purpose", conn)
+def populate_filters(activation):
+    Term_List = db.get_unique_values("Term", conn)
+    Purpose_List = db.get_unique_values("Purpose", conn)
     Purpose_List.sort()
-    Purpose_Dict = pltbld.createDictFilters(Purpose_List, "Purpose")
-    Source_List = db.getUniquevalues("Source", conn)
+    Purpose_Dict = pltbld.create_filters_dict(Purpose_List, "Purpose")
+    Source_List = db.get_unique_values("Source", conn)
     Source_List.sort()
-    Source_Dict = pltbld.createDictFilters(Source_List, "Source")
+    Source_Dict = pltbld.create_filters_dict(Source_List, "Source")
     return Term_List, Term_List, Purpose_Dict, Purpose_List, Source_Dict, Source_List
 
 
@@ -278,8 +280,8 @@ Plot_1 Callback
     Input("filter_purpose", "value"),
     Input("filter_source", "value"), prevent_initial_call=True
 )
-def buildPlot_1(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    return pltbld.buildLineDiagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+def build_plot1(activation, temporal_input, filter_terms, filter_purpose, filter_source):
+    return pltbld.build_line_diagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
 
 
 """
@@ -294,9 +296,9 @@ Spatial Callback
     Input("filter_terms", "value"),
     Input("filter_purpose", "value"),
     Input("filter_source", "value"), prevent_initial_call=True)
-def buildMap(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    map_fig = pltbld.buildEmptyMapGraph()
-    map_fig = pltbld.updateMapGraph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig)
+def build_map(activation, temporal_input, filter_terms, filter_purpose, filter_source):
+    map_fig = pltbld.build_empty_map_graph()
+    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig)
     return map_fig
 
 

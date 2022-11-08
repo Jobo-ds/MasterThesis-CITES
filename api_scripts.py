@@ -9,7 +9,7 @@ def get_Token():
 
 
 def api_get_distribution(taxon_name):
-    token = getToken()
+    token = get_Token()
     headers = {
         "X-Authentication-Token": token,
     }
@@ -21,9 +21,10 @@ def api_get_distribution(taxon_name):
     return response
 
 def api_query(taxon_name):
-    print("")
+    distribution_json = api_get_distribution(taxon_name)
+    return distribution_json
 
-test_reponse = buildAPIQuery("Corallus hortulanus")
+test_reponse = api_query("Corallus hortulanus")
 
 data = test_reponse.json()
 

@@ -25,11 +25,11 @@ Prepare initial data
 
 print("Populating dropdown menus")
 # Create Taxon List for Dropdown menus
-df = db.runQuery("SELECT Taxon from distinct_table_amount", conn)
+df = db.run_query("SELECT Taxon from distinct_table_amount", conn)
 taxon_list = df["Taxon"].values.tolist()
 
 # Create Column List for Dropdown menus
-df = db.runQuery("PRAGMA table_info(shipments);", conn)
+df = db.run_query("PRAGMA table_info(shipments);", conn)
 blacklist = ["Id", "Taxon", "Quantity", "Import.permit", "Export.permit", "Origin.permit"]
 col_list = df["name"].values.tolist()
 col_list = [word for word in col_list if word not in blacklist]
@@ -212,7 +212,7 @@ app.layout = dbc.Container(
 @app.callback(Output("taxon_data", 'data'), Input('input_taxon', 'value'))
 def getTaxonData(input_taxon):
     sql = "SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
-    df = db.runQuery(sql, conn)
+    df = db.run_query(sql, conn)
 
     return df.to_json(date_format='iso', orient='split')
 

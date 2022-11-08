@@ -1,7 +1,3 @@
-"""
-Functions for SQL-database
-"""
-
 import csv
 import datetime
 import os
@@ -9,6 +5,7 @@ import sqlite3
 import time
 import pandas as pd
 import numpy as np
+import pycountry
 
 """
 Connect to database
@@ -25,55 +22,87 @@ def connect_sqlite3(database):
 
 
 """
-Get data from database and return as pandas df
+Drop Table if already exists
 """
 
 
-def runQuery(sql, conn):
+def drop_table_if_exist(conn, table):
+    # Drop table if it already exists
+    try:
+        sql = "drop table if exists {table}".format(
+            table=table)
+        conn.execute(sql)
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred during 'drop table' in drop_table_if_exist")
+
+
+"""
+Create Table
+"""
+
+
+def create_table_from_df(conn, table, df):
+    cols = df.columns.to_numpy().tolist()
+    try:
+        sql = "create table {table} ({cols})".format(
+            table=table,
+            cols=", ".join("'{0}' {1}".format(value, "TEXT") for index, value in enumerate(cols)))
+        conn.execute(sql)
+        print("Table successfully created")
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while creating table")
+
+
+"""
+Run query on database and return as pandas df
+"""
+
+
+def run_query(sql, conn):
     try:
         result = pd.read_sql_query(sql, conn)
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred during runQuery")
+        print(f"The error '{err}' occurred during run_query")
     return result
 
 
 """
-Populate Dropdown Menu (Taxon)
+Populate Dropdown Menu (Species)
 """
 
 
-def buildDropdownTaxon():
+def build_dropdown_species():
     try:
         conn = connect_sqlite3("cites")
-        df = runQuery("SELECT Taxon from distinct_table_amount", conn)
+        df = run_query("SELECT Taxon from distinct_table_amount", conn)
         taxon_list = df["Taxon"].values.tolist()
         conn.close()
         return taxon_list
     except sqlite3.Error as err:
-        print(f"The error '{err}' occurred during buildDropdownTaxon")
+        print(f"The error '{err}' occurred during build_dropdown_species")
 
 
 """
-Create a temporary table in the sqlite database with Taxon Data
+Create a temporary table in the sqlite database with Species Data
 """
 
 
-def buildMainDataframe(input_taxon, conn, ctxtriggered_id):
+def build_main_df(input_taxon, conn, ctxtriggered_id):
     if ctxtriggered_id == "input_taxon":
         try:
-            sql = "DELETE FROM temp.taxon;"
+            sql = "DELETE FROM temp.taxon,"
             conn.execute(sql)
             sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
         except sqlite3.Error as err:
-            print(f"The error '{err}' occurred while 'copying data into temp table' in buildMainDataframe")
+            print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
     else:
         try:
             sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
             print("Temporary taxon table created.")
         except sqlite3.Error as err:
-            print(f"The error '{err}' occurred while 'creating temporary taxon table' in buildMainDataframe")
+            print(f"The error '{err}' occurred while 'creating temporary taxon table' in build_main_df")
 
 
 """
@@ -81,16 +110,19 @@ Get all uniques in temporary table attribute
 """
 
 
-def getUniquevalues(attribute, conn):
+def get_unique_values(attribute, conn):
     sql = "SELECT DISTINCT {} FROM temp.taxon".format(attribute)
-    df = runQuery(sql, conn)
+    df = run_query(sql, conn)
     df = df.fillna(value="Unknown")
     return df[attribute].values.tolist()
+
 
 """
 Convert Python List to SQL List
 """
-def ListToSQL(Plist):
+
+
+def list_to_sql(Plist):
     citations = lambda x: "'" + str(x) + "'"
     Plist = map(citations, Plist)
     SQLlist = "(" + ", ".join(map(str, Plist)) + ")"
@@ -98,10 +130,83 @@ def ListToSQL(Plist):
 
 
 """
+Retrieve and transform data needed for shipments in map graph
+"""
+
+
+def get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn):
+    try:
+        sql_start = "SELECT Year, Importer, Exporter FROM temp.taxon WHERE Year<={0} AND Term IN {1} AND".format(
+            temporal_input, list_to_sql(filter_terms))
+        sql_purpose = "Purpose IN {0}".format(list_to_sql(filter_purpose))
+        sql_purpose_null = "OR Purpose IS NULL"
+        sql_source = "Source IN {0}".format(list_to_sql(filter_source))
+        sql_source_null = "OR Source IS NULL"
+        sql_end = "ORDER BY Year"
+
+        if "Unknown" in filter_purpose:
+            sql = sql_start + " (" + sql_purpose + " " + sql_purpose_null + ")"
+        else:
+            sql = sql_start + " " + sql_purpose
+        if "Unknown" in filter_source:
+            sql = sql + " AND (" + sql_source + " " + sql_source_null + ")" + " " + sql_end
+        else:
+            sql = sql + " AND " + sql_source + " " + sql_end
+        df = run_query(sql, conn)
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while 'getting data from temp table' in get_data_map_graph")
+
+    return df
+
+
+"""
+Retrieve data from CITES+ database, related to the current species.
+"""
+
+
+def retrieve_cites_plus(species):
+    pass
+
+    # Write data to temp table
+
+
+"""
+Test integrity of temporary tables.
+"""
+
+
+def integrity_test():
+    pass
+
+
+"""
 Build database from CITES csv files.
 Only use to build a new database!
-The auxiliary tables are for faster plotting, would probably be smarter with foreign keys.
+The auxiliary tables are used to speed up certain functions.
 """
+
+
+def ready_aux_databases(cites_plus_csv, cites_checklist_csv):
+    print("Merging CITES+, CITES Checklist and CITES Trade Database.")
+    print("Importing and Preparing Data")
+    # CITES+
+    # Get columns for database
+    with open(cites_plus_csv, 'r') as f:
+        csv_reader = csv.DictReader(f)
+        cols = csv_reader.fieldnames
+    # Ready datatypes for attributes
+    datatypes = ["INTEGER", "INTEGER",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "TEXT", "REAL",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "TEXT", "TEXT",
+                 "INTEGER"
+                 ]
 
 
 def build_database(database):
@@ -127,19 +232,19 @@ def build_database(database):
                  "INTEGER"
                  ]
     # Connect to database
-    db = connect_sqlite3(database)
+    conn = connect_sqlite3(database)
     # Create table with cols
     table = "shipments"
     # Drop table if it already exists
     sql = "drop table if exists {table}".format(
         table=table)
-    db.execute(sql)
+    conn.execute(sql)
     # Create table
     try:
         sql = "create table {table} ({cols})".format(
             table=table,
             cols=", ".join("'{0}' {1}".format(value, datatypes[index]) for index, value in enumerate(cols)))
-        db.execute(sql)
+        conn.execute(sql)
         print("Table successfully created")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating table")
@@ -172,7 +277,7 @@ def build_database(database):
             # Using pandas df is faster than iterating over rows
             start_time = time.perf_counter()
             df = pd.read_csv(file, dtype=dtypes_dict)
-            df.to_sql(table, db, if_exists='append', index=False)
+            df.to_sql(table, conn, if_exists='append', index=False)
             # Calculate run time
             end_time = time.perf_counter()
             run_time = end_time - start_time
@@ -186,7 +291,7 @@ def build_database(database):
                 print("WARNING: Debug is active. Import will be a lot slower.")
                 df_rows = len(df)
                 total_rows_proc = total_rows_proc + df_rows
-                db_rows = db.execute("SELECT Count(*) FROM shipments")
+                db_rows = conn.execute("SELECT Count(*) FROM shipments")
                 db_rows = db_rows.fetchone()[0]
                 print(f"Rows in DF: {df_rows}. Total rows processed: {total_rows_proc}. Current rows in DB: {db_rows}.")
                 if total_rows_proc != db_rows:
@@ -198,22 +303,84 @@ def build_database(database):
     print("Creating Auxiliary tables.. This will take a minute.. or two.")
     # Create table with distinct rows
     try:
-        sql = "CREATE TABLE distinct_table_amount AS SELECT DISTINCT Taxon, Class, \"Order\", Family, Genus, COUNT(Importer) as 'amount' FROM shipments GROUP BY Taxon, Class, \"Order\", Family, Genus;"
-        db.execute(sql)
+        sql = "CREATE TABLE distinct_table_amount AS SELECT DISTINCT Taxon, Class, \"Order\", Family, Genus, COUNT(Importer) as 'amount' FROM shipments GROUP BY Taxon, Class, \"Order\", Family, Genus,"
+        conn.execute(sql)
         print("Distinct Auxiliary Table successfully created. Only two more to go...")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating Distinct Auxiliary Table")
     # Create tables for specific data
     try:
-        sql = "CREATE TABLE imports AS SELECT Importer as 'Country', COUNT(Importer) as 'Imports' from shipments GROUP BY Importer;"
-        db.execute(sql)
+        sql = "CREATE TABLE imports AS SELECT Importer as 'Country', COUNT(Importer) as 'Imports' from shipments GROUP BY Importer,"
+        conn.execute(sql)
         print("Imports table successfully created. Almost there...")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating imports table")
     try:
-        sql = "CREATE TABLE exports AS SELECT Exporter as 'Country', COUNT(Exporter) as 'Exports' from shipments GROUP BY Exporter;"
-        db.execute(sql)
+        sql = "CREATE TABLE exports AS SELECT Exporter as 'Country', COUNT(Exporter) as 'Exports' from shipments GROUP BY Exporter,"
+        conn.execute(sql)
         print("Exports table successfully created.")
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while creating exports table")
-    print("Database creation complete")
+    print("Main Database creation complete")
+    print("Create species+ database")
+    build_species_plus_table("cites")
+
+
+def build_species_plus_table(database):
+    speciesplus_csv = "CITES/species_plus_params_cites_listing.csv"
+    # Optimize Pandas Import
+    # Get columns for database
+    with open(speciesplus_csv, 'r') as f:
+        csv_reader = csv.DictReader(f)
+        cols = csv_reader.fieldnames
+    dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
+    df = pd.read_csv(speciesplus_csv, dtype=dtypes_dict)
+    # Drop Cols
+    drop_cols = ["Id", "Kingdom", "Family", "Phylum", "Class", "Order", "Genus", "Species", "Subspecies",
+                 "Scientific Name", "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes",]
+    df.drop(labels=drop_cols, axis="columns", inplace=True)
+    df.rename(columns={"NativeDistributionFullNames": "Native_Distribution", "Listed under": "Species"}, inplace=True)
+    df.fillna("NaN", inplace=True)
+    # Convert Countries to Alpha-2 ISO codes
+    targets = set(df.columns.to_numpy().tolist())
+    ignore_cols = {"Species", "Listing", "Party", "Full note"}
+    def add_iso_cols_to_row(row, col):
+        if row != "NaN" and col != "Nan":
+            countries = row.split(sep=",")
+            countries_iso = []
+            Unknown_countries = []
+            print(f"col: {col}")
+            print(f"row: {countries}")
+            for country in countries:
+                try:
+                    country = pycountry.countries.get(name=country)
+                    countries_iso.append(country.alpha_2)
+                except  AttributeError as err:
+                    print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
+                    Unknown_countries.append(country)
+            print(f"row: {countries_iso}")
+
+        return "Woohoo"
+
+    for col in targets.difference(ignore_cols):
+        print(col)
+        col_name = col + "_iso"
+        df[col_name] = df[col].apply(add_iso_cols_to_row, col=col)
+
+    conn = connect_sqlite3(database)
+    table = "species_plus"
+    drop_table_if_exist(conn, table)
+    create_table_from_df(conn, table, df)
+    # Sort Cols for nicety
+    df = df.reindex(sorted(df.columns), axis=1)
+    first_column = df.pop("Species")
+    second_column = df.pop("Listing")
+    third_column = df.pop("Party")
+    df.insert(0, "Species", first_column)
+    df.insert(1, "Listing", second_column)
+    df.insert(2, "Party", third_column)
+    # Insert Data to table database
+    try:
+        df.to_sql(table, conn, if_exists='replace', index=False)
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while importing species + database")
