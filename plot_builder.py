@@ -15,37 +15,47 @@ Auxiliary functions
 """
 
 
-def alpha2_to_alpha_3(value):
-    for co in list(pycountry.countries):
-        if value in co.alpha_2:
+def convert_countrycode(value, input_type, output_type):
+    def result(co, output_type):
+        if output_type == "name":
+            return co.name
+        if output_type == "alpha_2":
+            return co.alpha_2
+        if output_type == "alpha_3":
             return co.alpha_3
-        else:
-            for co in list(pycountry.historic_countries):
-                if value in co.alpha_2:
-                    return co.alpha_3
+
+    for co in list(pycountry.countries):
+        if input_type == "name":
+            if value in co.name:
+                return result(co, output_type)
+            try:
+                if value in co.official_name:
+                    return result(co, output_type)
+            except:
+                pass
+            value_alt = value.replace(" (", ", ")
+            value_alt = value_alt.replace(")", "")
+            if value_alt in co.name:
+                return result(co, output_type)
+        if input_type == "alpha_2":
+            if value in co.alpha_2:
+                return result(co, output_type)
+        if input_type == "alpha_3":
+            if value in co.alpha_3:
+                return result(co, output_type)
+    for co in list(pycountry.historic_countries):
+        print(f"Looking for {value} in {co}")
+        if input_type == "name":
+            if value in co.name:
+                return result(co, output_type)
+        if input_type == "alpha_2":
+            if value in co.alpha_2:
+                return result(co, output_type)
+        if input_type == "alpha_3":
+            if value in co.alpha_3:
+                return result(co, output_type)
     return value + "(Not Found)"
 
-
-def alpha3_to_Name(value):
-    for co in list(pycountry.countries):
-        if value in co.alpha_3:
-            return co.name
-        else:
-            for co in list(pycountry.historic_countries):
-                if value in co.alpha_3:
-                    return co.name
-    return value + "(Name Not Found)"
-
-
-def alpha2_to_Name(value):
-    for co in list(pycountry.countries):
-        if value in co.alpha_2:
-            return co.name
-        else:
-            for co in list(pycountry.historic_countries):
-                if value in co.alpha_2:
-                    return co.name
-    return value + "(Name Not Found)"
 
 
 """
@@ -202,7 +212,6 @@ Add Distributions to map_graph
 
 
 def add_distributions_to_map_graph(input_taxon, conn, map_fig):
-    print(input_taxon)
     sql = "SELECT * FROM species_plus WHERE \"Scientific Name\"=\"{0}\"".format(input_taxon)
     df = db.run_query(sql, conn)
     if df.empty:
@@ -211,38 +220,51 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         if df.empty:
             print("Unable to find species in Species+ database...")
             return map_fig
+    df.drop(labels=["Scientific Name", "Listed under", "Listing", "Party", "Full note"], axis=1, inplace=True)
+    df.dropna(axis=1, inplace=True)
+    df = df.transpose()
+    df.reset_index(inplace=True)
+    df.rename(columns={"index": "Distribution", 0: "Country"}, inplace=True)
+    df.set_index(["Distribution"])
+    df = df.apply(lambda x: x.str.split(',').explode())
+    def row_name_to_alpha3(row, col):
+        return convert_countrycode(row[col], "name", "alpha_3")
+    df["alpha3"] = df.apply(lambda row: row_name_to_alpha3(row, "Country"), axis=1)
+    #print(df.to_string())
 
     def create_choropleth(country_string):
         countries = country_string.split(sep=",")
+        print(countries)
         countries_iso = []
         Unknown_countries = []
         for country in countries:
             try:
-                country = pycountry.countries.get(name=country)
-                countries_iso.append(country.alpha_3)
-            except  AttributeError as err:
+                country_pycountry = pycountry.countries.get(name=country)
+                countries_iso.append(country_pycountry.alpha_3)
+            except AttributeError as err:
                 print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
                 Unknown_countries.append(country)
         print(f"Result: {countries_iso}")
         print(f"Unknown: {Unknown_countries}")
 
-        map_fig.add_trace(go.Choropleth(
-            locations=countries_iso,
-            z=100,
-            text="Test",
-            colorscale='Blues',
-            autocolorscale=False,
-            reversescale=True,
-            marker_line_color='darkgray',
-            marker_line_width=0.5,
-            colorbar_tickprefix='$',
-            colorbar_title='GDP<br>Billions US$'))
-        return map_fig
+    map_fig.add_trace(px.choropleth(
+        locations="iso_alpha",
+        z=100,
+        text="Test",
+        colorscale='Blues',
+        autocolorscale=False,
+        reversescale=True,
+        marker_line_color='darkgray',
+        marker_line_width=0.5,
+        colorbar_tickprefix='$',
+        colorbar_title='GDP<br>Billions US$'))
+    return map_fig
     targets = set(df.columns.to_numpy().tolist())
     ignore_cols = {"Scientific Name", "Listed under", "Listing", "Party", "Full note"}
     for col in targets.difference(ignore_cols):
         create_choropleth(str(df[col].values[0]))
     return map_fig
+
 
 """
 Update the map figure with traces
@@ -320,7 +342,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         return lat3, lon3
 
     def row_alpha2_to_name(row, col):
-        return alpha2_to_Name(row[col])
+        return convert_countrycode(row[col], "alpha2", "name")
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
