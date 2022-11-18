@@ -229,41 +229,38 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
     df = df.apply(lambda x: x.str.split(',').explode())
     def row_name_to_alpha3(row, col):
         return convert_countrycode(row[col], "name", "alpha_3")
-    df["alpha3"] = df.apply(lambda row: row_name_to_alpha3(row, "Country"), axis=1)
+    df["alpha_3"] = df.apply(lambda row: row_name_to_alpha3(row, "Country"), axis=1)
     #print(df.to_string())
 
-    def create_choropleth(country_string):
-        countries = country_string.split(sep=",")
-        print(countries)
-        countries_iso = []
-        Unknown_countries = []
-        for country in countries:
-            try:
-                country_pycountry = pycountry.countries.get(name=country)
-                countries_iso.append(country_pycountry.alpha_3)
-            except AttributeError as err:
-                print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
-                Unknown_countries.append(country)
-        print(f"Result: {countries_iso}")
-        print(f"Unknown: {Unknown_countries}")
+    # def create_choropleth(country_string):
+    #     countries = country_string.split(sep=",")
+    #     print(countries)
+    #     countries_iso = []
+    #     Unknown_countries = []
+    #     for country in countries:
+    #         try:
+    #             country_pycountry = pycountry.countries.get(name=country)
+    #             countries_iso.append(country_pycountry.alpha_3)
+    #         except AttributeError as err:
+    #             print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
+    #             Unknown_countries.append(country)
+    #     print(f"Result: {countries_iso}")
+    #     print(f"Unknown: {Unknown_countries}")
 
     map_fig.add_trace(px.choropleth(
-        locations="iso_alpha",
-        z=100,
-        text="Test",
-        colorscale='Blues',
-        autocolorscale=False,
-        reversescale=True,
-        marker_line_color='darkgray',
-        marker_line_width=0.5,
-        colorbar_tickprefix='$',
-        colorbar_title='GDP<br>Billions US$'))
+        data_frame=df,
+        locations="alpha_3",
+        locationmode="ISO-3",
+        color="Distribution",
+        #color_discrete_map={"Extinct_Distribution" : "red"}
+
+    ))
     return map_fig
-    targets = set(df.columns.to_numpy().tolist())
-    ignore_cols = {"Scientific Name", "Listed under", "Listing", "Party", "Full note"}
-    for col in targets.difference(ignore_cols):
-        create_choropleth(str(df[col].values[0]))
-    return map_fig
+    # targets = set(df.columns.to_numpy().tolist())
+    # ignore_cols = {"Scientific Name", "Listed under", "Listing", "Party", "Full note"}
+    # for col in targets.difference(ignore_cols):
+    #     create_choropleth(str(df[col].values[0]))
+    # return map_fig
 
 
 """
