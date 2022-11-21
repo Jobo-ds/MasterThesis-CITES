@@ -30,13 +30,16 @@ app = Dash(__name__)
 """
 Layout Components
 """
-header_search = html.Div(
+header = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Tridacna derasa", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), "Papio hamadryas", id="input_taxon"),
         # Good examples: Bos sauveli
         # Tridacna gigas (Has almost all distributions)
         # Tridacna derasa (Has all "Possibly" distribution)
+        # Papio hamadryas
         html.Div(id="search_hidden_div", style={"display": "none"}),
+        html.Div(id="trashcan_1", style={"display": "none"}),
+        html.Div(id="trashcan_2", style={"display": "none"}),
         dcc.Store(id='memory')
 
     ]
@@ -44,7 +47,8 @@ header_search = html.Div(
 
 header_info = dbc.Row([
     dbc.Col([
-        html.P("Kingdom: XXXXXXX. Family: XXXXXXX"),
+        html.P("Kingdom: Loading...", id="species_kingdom"),
+        html.P("Family: Loading...", id="species_family"),
     ], md=5),
     dbc.Col([
         html.P("English Common Names: XXXXXX, YYYYYYY, ZZZZZZZ"),
@@ -103,7 +107,10 @@ plot_2 = dbc.Card(
 tab_source = dbc.Card(
     [
         dbc.CardBody([
-            html.P("Placeholder", style={"text-align": "center"}),
+            dbc.CardBody([
+                dcc.Loading(children=dcc.Graph(id="plot_2a_graph"), type="default", color="white",
+                            parent_className="loading_wrapper")
+            ])
         ]),
     ],
     className="custom_card"
@@ -112,7 +119,8 @@ tab_source = dbc.Card(
 tab_purpose = dbc.Card(
     [
         dbc.CardBody([
-            html.P("Placeholder", style={"text-align": "center"}),
+            dcc.Loading(children=dcc.Graph(id="plot_2b_graph"), type="default", color="white",
+                        parent_className="loading_wrapper")
         ])
     ],
     className="custom_card"
@@ -132,21 +140,28 @@ spatial_map = html.Div(
     ]
     , style={"margin": "auto auto"})
 
-temporal_control = dbc.InputGroup(
+temporal_control = dbc.Card(
     [
-        dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
-        dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
-                   style={"margin-left": "-5px"}),
-        dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
-                  min=1979, max=2022,
-                  style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
-                         }, debounce=True),
-        dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
-        dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
-                   style={"margin-left": "-5px"}),
-        dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
-                   style={"margin-left": "-5px"}),
-    ])
+        dbc.CardHeader("Temporal Filters"),
+        dbc.CardBody(
+            dbc.InputGroup(
+                [
+                    dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
+                    dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
+                               style={"margin-left": "-5px"}),
+                    dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
+                              min=1975, max=2022,
+                              style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
+                                     }, debounce=True),
+                    dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
+                    dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
+                               style={"margin-left": "-5px"}),
+                    dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
+                               style={"margin-left": "-5px"}),
+                ])
+            , className="custom_cardBody_padding"),
+    ]
+)
 
 filter_terms = dbc.Card(
     [
@@ -190,10 +205,13 @@ app.layout = dbc.Container(
         # Header
         dbc.Row(
             [
-                dbc.Col(header_search, md=3),
-                dbc.Col(header_info, md=9)
+                dbc.Col(html.P(""), md=1),
+                dbc.Col(header, md=3),
+                dbc.Col(header_info, md=7),
+                dbc.Col(html.P(""), md=1),
             ],
             align="center",
+            style={"background": "#e1e1e1", "height": "80px", "border-bottom": "1px solid rgba(0, 0, 0, 0.175)"},
         ),
         # Data
         dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
@@ -231,7 +249,7 @@ app.layout = dbc.Container(
             align="start", justify="center",
         ),
     ],
-    fluid=True
+    fluid=True, style={'backgroundColor': "#eeeeee"}
 )
 
 """
@@ -243,14 +261,19 @@ Search Callback
     Output("search_hidden_div", "children"),
     Output("memory", "data"),
     Output("temporal_start", "children"),
+    Output("species_kingdom", "children"),
+    Output("species_family", "children"),
     Input("input_taxon", "value"))
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
-    sql = "SELECT MIN(Year) from Temp.Taxon"
-    temporal_start = db.run_query(sql, conn)
+    sql = "SELECT MIN(Year), Family FROM Temp.Taxon"
+    basic_data = db.run_query(sql, conn)
     memory = {}
-    memory["temporal_min"] = int(temporal_start['MIN(Year)'].values[0])
-    return "search_active", memory, memory["temporal_min"]
+    memory["temporal_min"] = int(basic_data['MIN(Year)'].values[0])
+    memory["family"] = str(basic_data['Family'].values[0])
+    kingdom = "MY KINGDOM"
+
+    return "search_active", memory, memory["temporal_min"], kingdom, "Family: " + memory["family"]
 
 
 """
@@ -267,7 +290,10 @@ Temporal Callbacks
     Input("temporal_minus", "n_clicks"),
     Input("temporal_end", "n_clicks"))
 def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
+    dev = True
     if ctx.triggered_id == "temporal_start":
+        if dev:
+            return 1995
         return memory["temporal_min"]
     elif ctx.triggered_id == "temporal_end":
         return 2022
@@ -276,6 +302,8 @@ def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, tempo
     elif ctx.triggered_id == "temporal_minus":
         return temporal_input - 1
     else:
+        if dev:
+            return 1995
         return memory["temporal_min"]
 
 
@@ -323,8 +351,42 @@ def build_plot1(activation, temporal_input, filter_terms, filter_purpose, filter
 
 
 """
-Source or Purpose Plot
+Source Plot Callback
 """
+
+
+@app.callback(
+    Output("plot_2a_graph", "figure"),
+    Output("trashcan_1", "children"),
+    Output("top_source", "children"),
+    Input("search_hidden_div", "children"),
+    Input("temporal_input", "value"),
+    Input("filter_terms", "value"),
+    Input("filter_purpose", "value"),
+    Input("filter_source", "value"), prevent_initial_call=True
+)
+def build_plot2a(activation, temporal_input, filter_terms, filter_purpose, filter_source):
+    return pltbld.build_line_diagram("Source", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+
+
+"""
+Purpose Plot Callback
+"""
+
+
+@app.callback(
+    Output("plot_2b_graph", "figure"),
+    Output("trashcan_2", "children"),
+    Output("top_purpose", "children"),
+    Input("search_hidden_div", "children"),
+    Input("temporal_input", "value"),
+    Input("filter_terms", "value"),
+    Input("filter_purpose", "value"),
+    Input("filter_source", "value"), prevent_initial_call=True
+)
+def build_plot2b(activation, temporal_input, filter_terms, filter_purpose, filter_source):
+    return pltbld.build_line_diagram("Purpose", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+
 
 """
 Spatial Callback

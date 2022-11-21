@@ -3,7 +3,9 @@ margin-bottom: 0px !important;
 }
 
 body {
-background: #eeeeee;}
+background-color: #eeeeee; !important;
+background: #eeeeee; !important;
+body: 0 !important;}
 
 /* Remove Arrows on number field */
 input::-webkit-outer-spin-button,
@@ -50,6 +52,10 @@ margin-bottom: 0 !important;
 
 .custom_cardBody {
     margin: 0px 5px 0px 5px !important;
+}
+
+.custom_cardBody_padding {
+    padding: 1rem 1rem !important;
 }
 
 .Select-control {

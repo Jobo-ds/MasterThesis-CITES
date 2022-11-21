@@ -141,6 +141,8 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         sql_purpose_null = "OR Purpose IS NULL"
         sql_source = "Source IN {0}".format(db.list_to_sql(filter_source))
         sql_source_null = "OR Source IS NULL"
+        sql_term = "Term IN {0}".format(db.list_to_sql(filter_terms))
+        sql_term_null = "OR Term IS NULL"
         sql_end = "GROUP BY {0}, Year ORDER BY Year, {0}".format(input_attribute)
 
         if "Unknown" in filter_purpose:
@@ -151,9 +153,16 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             sql = sql + " AND (" + sql_source + " " + sql_source_null + ")"
         else:
             sql = sql + " AND " + sql_source
+        if "Unknown" in filter_terms:
+            sql = sql + " AND (" + sql_term + " " + sql_term_null + ")"
+        else:
+            sql = sql + " AND " + sql_term
         sql = sql + " " + sql_end
         df = db.run_query(sql, conn)
-        df = df.loc[df['Term'].isin(filter_terms)].reset_index(drop=True)
+        df.fillna(value="Unknown", axis="index", inplace=True)
+        print(input_attribute)
+        print(df["count(" + input_attribute + ")"].sum())
+        print(df.to_string(max_rows=10))
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while 'getting data from temp table' in build_line_diagram")
     fig = px.line(
@@ -175,10 +184,12 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             x=0.5
         )
     )
-    top_term = df["Term"].mode().tolist()
-    top_term = [term.capitalize() for term in top_term]
-    top_term = ", ".join(top_term)
-    return fig, df["count(Term)"].sum(), top_term
+    top_result = df[input_attribute].mode().tolist()
+    top_result = [input_attribute.capitalize() for input_attribute in top_result]
+    top_result = ", ".join(top_result)
+    print(top_result)
+    return fig, df["count("+ input_attribute +")"].sum(), top_result
+
 
 
 """
@@ -196,10 +207,11 @@ def build_empty_map_graph():
         projection_type="equirectangular",
         showframe=False,
     )
-    fig_map.update_layout(
+    fig_map.update_layout( #https://plotly.com/python/reference/#layout
         height=500,
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        showlegend=False
+        showlegend=False,
+        paper_bgcolor="#eeeeee",
     )
     return fig_map
 
