@@ -1,50 +1,51 @@
+/* Default HTML Tags */
+
 p {
-margin-bottom: 0px !important;
+	margin-bottom: 0px !important;
 }
 
 body {
-background-color: #eeeeee; !important;
-background: #eeeeee; !important;
-body: 0 !important;}
+	background-color: #eeeeee; !important;
+	background: #eeeeee; !important;
+    margin: 0 !important;
+}
+
+/* Buttons */
+.custom_ButtonGroup {
+    margin-top:10px;
+}
+
+.custom_Button {
+    margin-right: 10px;
+    border-radius: 0.375rem !important;
+    max-width: 230px;
+}
 
 /* Remove Arrows on number field */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+	-webkit-appearance: none;
+	margin: 0;
 }
 
 input[type=number] {
-  -moz-appearance: textfield;
+	-moz-appearance: textfield;
 }
 
+
+/* Loading */
 .loading_wrapper > div {
     visibility: visible !important;
+}
+
+/* Cards */
+.card-header {
+    background-color: #e1e1e1 !important;
 }
 
 .card-body {
     padding: 0 !important;
 }
-
-.nav-tabs {
-border-bottom: 0px solid rgba(0, 0, 0, 0.175) !important;
-
-}
-
-.nav {
-padding-left: 0 !important;
-margin-bottom: 0 !important;
-}
-
-.card-header {
-    background-color: #e1e1e1 !important;
-    }
-
-.nav-link.active {
-    /*background-color: rgba(0, 0, 0, 0.03) !important; */
-    background-color: #e1e1e1 !important;
-    border-color: rgba(0, 0, 0, 0.175) !important;
-    }
 
 .custom_card {
     border-radius: 0px 0px 0.375rem 0.375rem !important;
@@ -58,6 +59,34 @@ margin-bottom: 0 !important;
     padding: 1rem 1rem !important;
 }
 
+/* Tabs */
+
+.nav-tabs {
+    border-bottom: 0px solid rgba(0, 0, 0, 0.175) !important;
+}
+
+.nav {
+    padding-left: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.nav-link {
+    /*background-color: rgba(0, 0, 0, 0.03) !important; */
+    background-color: #F0F0F0 !important;
+    border-color: rgba(0, 0, 0, 0.175) !important;
+    margin-top: 6px !important;
+    margin-bottom: -7px !important;
+}
+
+.nav-link.active {
+    /*background-color: rgba(0, 0, 0, 0.03) !important; */
+    background-color: #e1e1e1 !important;
+    border-color: rgba(0, 0, 0, 0.175) !important;
+    margin-top: 0px !important;
+    margin-bottom: -1px !important;
+}
+
+/* Select Menu */
 .Select-control {
     border: 0 !important;
 }
@@ -66,3 +95,4 @@ margin-bottom: 0 !important;
     margin-top: -2px !important;
     border: 1px solid rgba(0, 0, 0, 0.175) !important;
 }
+

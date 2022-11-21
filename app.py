@@ -27,6 +27,28 @@ Init DASH
 
 app = Dash(__name__)
 
+null_graph = {
+    "layout": {
+        "xaxis": {
+            "visible": False
+        },
+        "yaxis": {
+            "visible": False
+        },
+        "annotations": [
+            {
+                "text": "No data for <br> selected period",
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {
+                    "size": 28
+                }
+            }
+        ]
+    }
+}
+
 """
 Layout Components
 """
@@ -56,40 +78,11 @@ header_info = dbc.Row([
 ], align="center",
 )
 
-data_overview = dbc.Card(
-    [
-        dbc.CardHeader("Data Overview"),
-        dbc.CardBody([
-            dbc.Row([
-                dbc.Col(html.P("Total Shipments:"), md=7),
-                dbc.Col(html.P("...", id="total_shipments"), md=5)
-            ]),
-            dbc.Row([
-                dbc.Col(html.P("Unspecified Shipments:"), md=7),
-                dbc.Col(html.P("...", id="unspec_shipments"), md=5)
-            ]),
-            dbc.Row([
-                dbc.Col(html.P("Top Term:"), md=7),
-                dbc.Col(html.P("...", id="top_term"), md=5)
-            ]),
-            dbc.Row([
-                dbc.Col(html.P("Top Purpose:"), md=7),
-                dbc.Col(html.P("...", id="top_purpose"), md=5)
-            ]),
-            dbc.Row([
-                dbc.Col(html.P("Top Source:"), md=7),
-                dbc.Col(html.P("...", id="top_source"), md=5)
-            ]),
-            dbc.Row(html.H5("Top 5 Connections", style={"text-align": "center"}), ),
-        ], className="custom_cardBody"),
-    ],
-)
-
 tab_terms_trade = dbc.Card(
     [
         dbc.CardBody([
             dbc.CardBody([
-                dcc.Loading(children=dcc.Graph(id="plot_1_graph"), type="default", color="white",
+                dcc.Loading(children=dcc.Graph(id="plot_1_graph", figure=null_graph), type="default", color="white",
                             parent_className="loading_wrapper")
             ])
         ]),
@@ -117,7 +110,7 @@ tab_source = dbc.Card(
     [
         dbc.CardBody([
             dbc.CardBody([
-                dcc.Loading(children=dcc.Graph(id="plot_2a_graph"), type="default", color="white",
+                dcc.Loading(children=dcc.Graph(id="plot_2a_graph", figure=null_graph), type="default", color="white",
                             parent_className="loading_wrapper")
             ])
         ]),
@@ -128,7 +121,7 @@ tab_source = dbc.Card(
 tab_purpose = dbc.Card(
     [
         dbc.CardBody([
-            dcc.Loading(children=dcc.Graph(id="plot_2b_graph"), type="default", color="white",
+            dcc.Loading(children=dcc.Graph(id="plot_2b_graph", figure=null_graph), type="default", color="white",
                         parent_className="loading_wrapper")
         ])
     ],
@@ -144,7 +137,7 @@ plot_2 = dbc.Tabs(
 
 spatial_map = html.Div(
     [
-        dcc.Loading(children=dcc.Graph(id="spatial_map"), type="default", color="white",
+        dcc.Loading(children=dcc.Graph(id="spatial_map", figure=null_graph), type="default", color="white",
                     parent_className="loading_wrapper")
     ]
     , style={"margin": "auto auto"})
@@ -206,6 +199,42 @@ filter_purpose = dbc.Card(
 )
 
 """
+Badges in Header
+"""
+
+total_badge = dbc.Button(
+    [
+        "Total Shipments",
+        dbc.Badge("...", id="total_shipments", color="light", text_color="primary", className="ms-1"),
+    ],
+    color="primary", class_name="custom_Button",
+)
+
+term_badge = dbc.Button(
+    [
+        "Top Term",
+        dbc.Badge("...", id="top_term", color="light", text_color="primary", className="ms-1"),
+    ],
+    color="primary", class_name="custom_Button",
+)
+
+purpose_badge = dbc.Button(
+    [
+        "Top Purpose",
+        dbc.Badge("...", id="top_purpose", color="light", text_color="primary", className="ms-1"),
+    ],
+    color="primary", class_name="custom_Button",
+)
+
+source_badge = dbc.Button(
+    [
+        "Top Source",
+        dbc.Badge("...", id="top_source", color="light", text_color="primary", className="ms-1"),
+    ],
+    color="primary", class_name="custom_Button",
+)
+
+"""
 DASH Layout
 """
 
@@ -220,8 +249,15 @@ app.layout = dbc.Container(
                 dbc.Col(html.P(""), md=1),
             ],
             align="center",
-            style={"background": "#e1e1e1", "height": "80px", "border-bottom": "1px solid rgba(0, 0, 0, 0.175)"},
+            style={"background": "#e1e1e1", "height": "80px", "border-bottom": "1px solid rgba(0, 0, 0, 0.175)",
+                   "padding-bottom": "5px"},
         ),
+        dbc.Row(
+            [
+                html.Br(),
+                dbc.ButtonGroup([
+                    total_badge, term_badge, purpose_badge, source_badge
+            ], class_name="custom_ButtonGroup")]),
         # Data
         dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
         dbc.Row(
@@ -251,9 +287,6 @@ app.layout = dbc.Container(
                                         filter_source
                                     ], md=7)],
                         ),
-                        dbc.Row(
-                            dbc.Col([html.Br(), data_overview], md=12)
-                        )
                     ]
                     , md=6)
             ],
@@ -265,16 +298,17 @@ app.layout = dbc.Container(
 
 """
 Search Callback
-"""
+""" \
 
-
-@app.callback(
+@ app.callback(
     Output("search_hidden_div", "children"),
     Output("memory", "data"),
     Output("temporal_start", "children"),
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Input("input_taxon", "value"))
+
+
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
     sql = "SELECT MIN(Year), Family FROM Temp.Taxon"

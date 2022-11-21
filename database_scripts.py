@@ -44,7 +44,7 @@ Create Table
 def create_table_from_df(conn, table, df):
     cols = df.columns.to_numpy().tolist()
     try:
-        sql = "create table {table} ({cols})".format(
+        sql = "CREATE TABLE {table} ({cols})".format(
             table=table,
             cols=", ".join("'{0}' {1}".format(value, "TEXT") for index, value in enumerate(cols)))
         conn.execute(sql)
@@ -98,7 +98,7 @@ def build_main_df(input_taxon, conn, ctxtriggered_id):
             print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
     else:
         try:
-            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Unknown') AS Purpose, ifnull(Source, 'Unknown') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
             print("Temporary taxon table created.")
         except sqlite3.Error as err:

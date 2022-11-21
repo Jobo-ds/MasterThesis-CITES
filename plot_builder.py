@@ -82,21 +82,21 @@ def create_filters_dict(filter_list, outputfilter):
             if dicts["value"] in filter_list:
                 valid_dict_list.append(dicts)
     elif outputfilter == "Source":
-        purpose_list = [{"label": "Artificially propagated plants", "value": "A"},
-                        {"label": "Bred in captivity", "value": "C"},
-                        {"label": "Bred in captivity (Appx I)", "value": "D"},
-                        {"label": "Born in captivity", "value": "F"},
-                        {"label": "Confiscated specimens", "value": "I"},
-                        {"label": "Pre-Convention specimens", "value": "O"},
-                        {"label": "Ranched specimens", "value": "R"},
-                        {"label": "Source unknown", "value": "U"},
-                        {"label": "Taken from wild", "value": "W"},
-                        {"label": "Taken from marine env.", "value": "X"},
-                        {"label": "Assisted production", "value": "Y"},
-                        {"label": "Unknown", "value": "Unknown"}
-                        ]
+        source_list = [{"label": "Artificially propagated plants", "value": "A"},
+                       {"label": "Bred in captivity", "value": "C"},
+                       {"label": "Bred in captivity (Appx I)", "value": "D"},
+                       {"label": "Born in captivity", "value": "F"},
+                       {"label": "Confiscated specimens", "value": "I"},
+                       {"label": "Pre-Convention specimens", "value": "O"},
+                       {"label": "Ranched specimens", "value": "R"},
+                       {"label": "Source unknown", "value": "U"},
+                       {"label": "Taken from wild", "value": "W"},
+                       {"label": "Taken from marine env.", "value": "X"},
+                       {"label": "Assisted production", "value": "Y"},
+                       {"label": "Unknown", "value": "Unknown"}
+                       ]
         valid_dict_list = []
-        for dicts in purpose_list:
+        for dicts in source_list:
             if dicts["value"] in filter_list:
                 valid_dict_list.append(dicts)
     return valid_dict_list
@@ -160,11 +160,39 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         sql = sql + " " + sql_end
         df = db.run_query(sql, conn)
         df.fillna(value="Unknown", axis="index", inplace=True)
-        print(input_attribute)
-        print(df["count(" + input_attribute + ")"].sum())
-        print(df.to_string(max_rows=10))
+
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while 'getting data from temp table' in build_line_diagram")
+
+    if input_attribute == "Source":
+        source_dict = {"A": "Artificially propagated plants",
+                       "C": "Bred in captivity",
+                       "B": "Bred in captivity (Appx I)",
+                       "F": "Born in captivity",
+                       "I": "Confiscated specimens",
+                       "O": "Pre-Convention specimens",
+                       "R": "Ranched specimens",
+                       "U": "Source unknown",
+                       "W": "Taken from wild",
+                       "X": "Taken from marine env.",
+                       "Y": "Assisted production"}
+        df.replace({"Source": source_dict}, inplace=True)
+
+    if input_attribute == "Purpose":
+        purpose_dict = {"B": "Breeding",
+                        "E": "Educational",
+                        "G": "Botanical garden",
+                        "H": "Hunting Trophy",
+                        "L": "Law enforcement",
+                        "M": "Medical",
+                        "N": "(Re)introduction",
+                        "P": "Personal",
+                        "Q": "Circus/Exhibition",
+                        "S": "Scientific",
+                        "T": "Commercial",
+                        "Z": "Zoo", }
+        df.replace({"Purpose": purpose_dict}, inplace=True)
+
     fig = px.line(
         df,
         y="count(" + input_attribute + ")",
@@ -181,15 +209,15 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             yanchor="bottom",
             y=1,
             xanchor="center",
-            x=0.5
+            x=0.5,
+            itemclick=False,
+            itemdoubleclick=False,
         )
     )
     top_result = df[input_attribute].mode().tolist()
     top_result = [input_attribute.capitalize() for input_attribute in top_result]
     top_result = ", ".join(top_result)
-    print(top_result)
-    return fig, df["count("+ input_attribute +")"].sum(), top_result
-
+    return fig, df["count(" + input_attribute + ")"].sum(), top_result
 
 
 """
@@ -207,11 +235,12 @@ def build_empty_map_graph():
         projection_type="equirectangular",
         showframe=False,
     )
-    fig_map.update_layout( #https://plotly.com/python/reference/#layout
+    fig_map.update_layout(  # https://plotly.com/python/reference/#layout
         height=500,
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         showlegend=False,
         paper_bgcolor="#eeeeee",
+        plot_bgcolor="#eeeeee"
     )
     return fig_map
 
@@ -240,7 +269,6 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         return map_fig
     df.set_index(["Distribution"])
     df = df.apply(lambda x: x.str.split(',').explode())
-
 
     def row_name_to_alpha3(row, col):
         return convert_countrycode(row[col], "name", "alpha_3")
@@ -276,7 +304,6 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
             return 0.4
         if "Reintro" in row[col]:
             return 0.2
-
 
     def text_generation(row, col):
         if row[col] == "Native_Distribution":
@@ -314,16 +341,16 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         zmin=0,
         zmax=1,
         colorscale=[
-            [0, "rgba(77,77,77,0)"], # Dummy
-            [0.1, "rgba(26,152,80,0.5)"], # Native
-            [0.2, "rgba(145,207,96,0.5)"], # Reintroduced
-            [0.3, "rgba(217,239,139,0.5)"], # Introduced
-            [0.4, "rgba(217,239,139,0.25)"], # Introduced (?)
-            [0.5, "rgba(254,224,139,0.5)"], # Uncertain
-            [0.6, "rgba(215,48,39,0.5)"], # Extinct (?)
-            [0.7, "rgba(215,48,39,0.5)"], # Extinct
-            [0.8, "rgba(77,77,77,0)"], # Dummy
-            [0.9, "rgba(77,77,77,0)"], # Dummy
+            [0, "rgba(77,77,77,0)"],  # Dummy
+            [0.1, "rgba(26,152,80,0.5)"],  # Native
+            [0.2, "rgba(145,207,96,0.5)"],  # Reintroduced
+            [0.3, "rgba(217,239,139,0.5)"],  # Introduced
+            [0.4, "rgba(217,239,139,0.25)"],  # Introduced (?)
+            [0.5, "rgba(254,224,139,0.5)"],  # Uncertain
+            [0.6, "rgba(215,48,39,0.5)"],  # Extinct (?)
+            [0.7, "rgba(215,48,39,0.5)"],  # Extinct
+            [0.8, "rgba(77,77,77,0)"],  # Dummy
+            [0.9, "rgba(77,77,77,0)"],  # Dummy
             [1, "rgba(77,77,77,0)"],  # Dummy
         ],
         hoverlabel=dict(
@@ -339,7 +366,7 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         #         width="10"
         #     ),
         # ),
-        #colorscale="Bluered",
+        # colorscale="Bluered",
         showscale=False,
     ))
     return map_fig
@@ -485,3 +512,4 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
     return map_fig
+
