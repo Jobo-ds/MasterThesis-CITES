@@ -85,22 +85,31 @@ data_overview = dbc.Card(
     ],
 )
 
-plot_1 = dbc.Card(
+tab_terms_trade = dbc.Card(
     [
-        dbc.CardHeader("Term type per trade"),
         dbc.CardBody([
-            dcc.Loading(children=dcc.Graph(id="plot_1_graph"), type="default", color="white",
-                        parent_className="loading_wrapper")
-        ])
-    ]
+            dbc.CardBody([
+                dcc.Loading(children=dcc.Graph(id="plot_1_graph"), type="default", color="white",
+                            parent_className="loading_wrapper")
+            ])
+        ]),
+    ],
+    className="custom_card"
 )
 
-plot_2 = dbc.Card(
+tab_terms_quantity = dbc.Card(
     [
-        dbc.CardHeader("Total Quantities of Terms"),
         dbc.CardBody([
             html.P("Placeholder", style={"text-align": "center"}),
         ])
+    ],
+    className="custom_card"
+)
+
+plot_1 = dbc.Tabs(
+    [
+        dbc.Tab(tab_terms_trade, label="Term type per trade"),
+        dbc.Tab(tab_terms_quantity, label="Term per quantity"),
     ]
 )
 
@@ -126,7 +135,7 @@ tab_purpose = dbc.Card(
     className="custom_card"
 )
 
-plot_3 = dbc.Tabs(
+plot_2 = dbc.Tabs(
     [
         dbc.Tab(tab_source, label="Source"),
         dbc.Tab(tab_purpose, label="Purpose"),
@@ -219,9 +228,8 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        dbc.Row([dbc.Col(plot_1, md=7), dbc.Col(data_overview, md=5)]),
-                        dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
-                        dbc.Row([dbc.Col(plot_2, md=7), dbc.Col(plot_3, md=5)]),
+                        dbc.Row([dbc.Col(plot_1, md=12)]),
+                        dbc.Row(dbc.Col([html.Br(), plot_2], md=12)),
                     ]
                     , md=6)
                 ,
@@ -242,6 +250,9 @@ app.layout = dbc.Container(
                                         html.Br(),
                                         filter_source
                                     ], md=7)],
+                        ),
+                        dbc.Row(
+                            dbc.Col([html.Br(), data_overview], md=12)
                         )
                     ]
                     , md=6)
