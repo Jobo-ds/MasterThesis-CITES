@@ -133,48 +133,51 @@ spatial_map = html.Div(
     , style={"margin": "auto auto"})
 
 temporal_control = dbc.InputGroup(
-        [
-            dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
-            dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
-                       style={"margin-left": "-5px"}),
-            dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
-                      min=1979, max=2022,
-                      style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
-                             }, debounce=True),
-            dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
-            dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
-                       style={"margin-left": "-5px"}),
-            dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
-                       style={"margin-left": "-5px"}),
-        ])
-
-spatial_filters = dbc.Card(
     [
-        dbc.Row([
-            dbc.Col("Terms", md=3),
-            dbc.Col(dcc.Dropdown(
+        dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
+        dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
+                   style={"margin-left": "-5px"}),
+        dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
+                  min=1979, max=2022,
+                  style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
+                         }, debounce=True),
+        dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
+        dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
+                   style={"margin-left": "-5px"}),
+        dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
+                   style={"margin-left": "-5px"}),
+    ])
+
+filter_terms = dbc.Card(
+    [
+        dbc.CardHeader("Filter Terms"),
+        dbc.CardBody(
+            dcc.Dropdown(
                 multi=True,
                 id="filter_terms",
-                searchable=False,
-            ), md=9)
-        ]),
-        dbc.Row([
-            dbc.Col("Purpose", md=3),
-            dbc.Col(dcc.Dropdown(
-                multi=True,
-                id="filter_purpose",
-                searchable=False,
-            ), md=9)
-        ]),
-        dbc.Row([
-            dbc.Col("Source", md=3),
-            dbc.Col(dcc.Dropdown(
+                searchable=False, )),
+    ]
+)
+
+filter_source = dbc.Card(
+    [
+        dbc.CardHeader("Filter Sources"),
+        dbc.CardBody(
+            dcc.Dropdown(
                 multi=True,
                 id="filter_source",
-                searchable=False,
-            ), md=9)
-        ]),
+                searchable=False, )),
+    ]
+)
 
+filter_purpose = dbc.Card(
+    [
+        dbc.CardHeader("Filter Purposes"),
+        dbc.CardBody(
+            dcc.Dropdown(
+                multi=True,
+                id="filter_purpose",
+                searchable=False, )),
     ]
 )
 
@@ -208,7 +211,20 @@ app.layout = dbc.Container(
                     [
                         dbc.Row(spatial_map),
                         dbc.Row(
-                            [dbc.Col(temporal_control, md=5), dbc.Col(spatial_filters, md=7)])
+                            [
+                                dbc.Col(
+                                    [
+                                        temporal_control,
+                                        html.Br(),
+                                        filter_terms,
+                                    ], md=5),
+                                dbc.Col(
+                                    [
+                                        filter_purpose,
+                                        html.Br(),
+                                        filter_source
+                                    ], md=7)],
+                        )
                     ]
                     , md=6)
             ],

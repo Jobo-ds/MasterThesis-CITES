@@ -2,6 +2,9 @@ p {
 margin-bottom: 0px !important;
 }
 
+body {
+background: #eeeeee;}
+
 /* Remove Arrows on number field */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
@@ -31,9 +34,14 @@ padding-left: 0 !important;
 margin-bottom: 0 !important;
 }
 
+.card-header {
+    background-color: #e1e1e1 !important;
+    }
+
 .nav-link.active {
-    background-color: rgba(0, 0, 0, 0.03) !important;
-    border-color: 1px solid rgba(0, 0, 0, 0.175) !important;
+    /*background-color: rgba(0, 0, 0, 0.03) !important; */
+    background-color: #e1e1e1 !important;
+    border-color: rgba(0, 0, 0, 0.175) !important;
     }
 
 .custom_card {
@@ -42,4 +50,13 @@ margin-bottom: 0 !important;
 
 .custom_cardBody {
     margin: 0px 5px 0px 5px !important;
+}
+
+.Select-control {
+    border: 0 !important;
+}
+
+.Select-menu-outer {
+    margin-top: -2px !important;
+    border: 1px solid rgba(0, 0, 0, 0.175) !important;
 }
