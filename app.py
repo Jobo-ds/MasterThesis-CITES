@@ -32,7 +32,10 @@ Layout Components
 """
 header_search = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Tridacna gigas", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), "Tridacna derasa", id="input_taxon"),
+        # Good examples: Bos sauveli
+        # Tridacna gigas (Has almost all distributions)
+        # Tridacna derasa (Has all "Possibly" distribution)
         html.Div(id="search_hidden_div", style={"display": "none"}),
         dcc.Store(id='memory')
 
@@ -41,68 +44,85 @@ header_search = html.Div(
 
 header_info = dbc.Row([
     dbc.Col([
-        html.P("English Common Names: XXXXXX, YYYYYYY, ZZZZZZZ"),
         html.P("Kingdom: XXXXXXX. Family: XXXXXXX"),
     ], md=5),
     dbc.Col([
-        html.P("Downloads"),
-        html.P("CITES Identification Guide"),
-        html.P("XXXXXX, ZZZZZZ"),
+        html.P("English Common Names: XXXXXX, YYYYYYY, ZZZZZZZ"),
     ], md=5),
 ], align="center",
 )
 
-Accum_data = dbc.Card(
+data_overview = dbc.Card(
     [
-        dbc.Row(html.H5("Data Overview", style={"text-align": "center"}), ),
-        dbc.Row([
-            dbc.Col(html.P("Total Shipments:"), md=7),
-            dbc.Col(html.P("...", id="total_shipments"), md=5)
-        ]),
-        dbc.Row([
-            dbc.Col(html.P("Unspecified Shipments:"), md=7),
-            dbc.Col(html.P("...", id="unspec_shipments"), md=5)
-        ]),
-        dbc.Row([
-            dbc.Col(html.P("Top Term:"), md=7),
-            dbc.Col(html.P("...", id="top_term"), md=5)
-        ]),
-        dbc.Row([
-            dbc.Col(html.P("Top Purpose:"), md=7),
-            dbc.Col(html.P("...", id="top_purpose"), md=5)
-        ]),
-        dbc.Row([
-            dbc.Col(html.P("Top Source:"), md=7),
-            dbc.Col(html.P("...", id="top_source"), md=5)
-        ]),
-        dbc.Row(html.H5("Top 5 Connections", style={"text-align": "center"}), ),
+        dbc.CardHeader("Data Overview"),
+        dbc.CardBody([
+            dbc.Row([
+                dbc.Col(html.P("Total Shipments:"), md=7),
+                dbc.Col(html.P("...", id="total_shipments"), md=5)
+            ]),
+            dbc.Row([
+                dbc.Col(html.P("Unspecified Shipments:"), md=7),
+                dbc.Col(html.P("...", id="unspec_shipments"), md=5)
+            ]),
+            dbc.Row([
+                dbc.Col(html.P("Top Term:"), md=7),
+                dbc.Col(html.P("...", id="top_term"), md=5)
+            ]),
+            dbc.Row([
+                dbc.Col(html.P("Top Purpose:"), md=7),
+                dbc.Col(html.P("...", id="top_purpose"), md=5)
+            ]),
+            dbc.Row([
+                dbc.Col(html.P("Top Source:"), md=7),
+                dbc.Col(html.P("...", id="top_source"), md=5)
+            ]),
+            dbc.Row(html.H5("Top 5 Connections", style={"text-align": "center"}), ),
+        ], className="custom_cardBody"),
     ],
-    body=True,
 )
 
-Plot_1 = dbc.Card(
+plot_1 = dbc.Card(
     [
-        dbc.Row(html.H5("Term type per trade", style={"text-align": "center"}), ),
-        dbc.Row([
+        dbc.CardHeader("Term type per trade"),
+        dbc.CardBody([
             dcc.Loading(children=dcc.Graph(id="plot_1_graph"), type="default", color="white",
                         parent_className="loading_wrapper")
         ])
-    ],
-    body=True,
+    ]
 )
 
-Plot_3 = dbc.Card(
+plot_2 = dbc.Card(
     [
-        dbc.Row(html.H5("Total Quantities of Terms", style={"text-align": "center"}), ),
-    ],
-    body=True,
+        dbc.CardHeader("Total Quantities of Terms"),
+        dbc.CardBody([
+            html.P("Placeholder", style={"text-align": "center"}),
+        ])
+    ]
 )
 
-Plot_4 = dbc.Card(
+tab_source = dbc.Card(
     [
-        dbc.Row(html.H5("Source or Purpose Plot", style={"text-align": "center"}), ),
+        dbc.CardBody([
+            html.P("Placeholder", style={"text-align": "center"}),
+        ]),
     ],
-    body=True,
+    className="custom_card"
+)
+
+tab_purpose = dbc.Card(
+    [
+        dbc.CardBody([
+            html.P("Placeholder", style={"text-align": "center"}),
+        ])
+    ],
+    className="custom_card"
+)
+
+plot_3 = dbc.Tabs(
+    [
+        dbc.Tab(tab_source, label="Source"),
+        dbc.Tab(tab_purpose, label="Purpose"),
+    ]
 )
 
 spatial_map = html.Div(
@@ -112,15 +132,14 @@ spatial_map = html.Div(
     ]
     , style={"margin": "auto auto"})
 
-temporal_control = dbc.Card(
-    dbc.InputGroup(
+temporal_control = dbc.InputGroup(
         [
             dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
             dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
                        style={"margin-left": "-5px"}),
             dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
                       min=1979, max=2022,
-                      style={"width": "100px", "margin-left": "-5px",
+                      style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
                              }, debounce=True),
             dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
             dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
@@ -128,8 +147,6 @@ temporal_control = dbc.Card(
             dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
                        style={"margin-left": "-5px"}),
         ])
-    , body=True,
-)
 
 spatial_filters = dbc.Card(
     [
@@ -158,8 +175,7 @@ spatial_filters = dbc.Card(
             ), md=9)
         ]),
 
-    ],
-    body=True,
+    ]
 )
 
 """
@@ -182,9 +198,9 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        dbc.Row([dbc.Col(Plot_1, md=7), dbc.Col(Accum_data, md=5)]),
+                        dbc.Row([dbc.Col(plot_1, md=7), dbc.Col(data_overview, md=5)]),
                         dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
-                        dbc.Row([dbc.Col(Plot_3, md=7), dbc.Col(Plot_4, md=5)]),
+                        dbc.Row([dbc.Col(plot_2, md=7), dbc.Col(plot_3, md=5)]),
                     ]
                     , md=6)
                 ,
@@ -244,7 +260,7 @@ def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, tempo
     elif ctx.triggered_id == "temporal_minus":
         return temporal_input - 1
     else:
-        return 1989
+        return memory["temporal_min"]
 
 
 """
@@ -272,7 +288,7 @@ def populate_filters(activation):
 
 
 """
-Plot_1 Callback
+Term Type per Trade Callback
 """
 
 
@@ -289,6 +305,10 @@ Plot_1 Callback
 def build_plot1(activation, temporal_input, filter_terms, filter_purpose, filter_source):
     return pltbld.build_line_diagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
 
+
+"""
+Source or Purpose Plot
+"""
 
 """
 Spatial Callback

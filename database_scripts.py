@@ -90,7 +90,7 @@ Create a temporary table in the sqlite database with Species Data
 def build_main_df(input_taxon, conn, ctxtriggered_id):
     if ctxtriggered_id == "input_taxon":
         try:
-            sql = "DELETE FROM temp.taxon,"
+            sql = "DELETE FROM temp.taxon"
             conn.execute(sql)
             sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)

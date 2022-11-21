@@ -44,7 +44,6 @@ def convert_countrycode(value, input_type, output_type):
             if value in co.alpha_3:
                 return result(co, output_type)
     for co in list(pycountry.historic_countries):
-        print(f"Looking for {value} in {co}")
         if input_type == "name":
             if value in co.name:
                 return result(co, output_type)
@@ -55,7 +54,6 @@ def convert_countrycode(value, input_type, output_type):
             if value in co.alpha_3:
                 return result(co, output_type)
     return value + "(Not Found)"
-
 
 
 """
@@ -214,10 +212,10 @@ Add Distributions to map_graph
 def add_distributions_to_map_graph(input_taxon, conn, map_fig):
     sql = "SELECT * FROM species_plus WHERE \"Scientific Name\"=\"{0}\"".format(input_taxon)
     df = db.run_query(sql, conn)
-    if df.empty:
-        sql = "SELECT * FROM species_plus WHERE \"Listed under\"=\"{0}\"".format(input_taxon)
-        df = db.run_query(sql, conn)
-        if df.empty:
+    if len(df) == 0:
+        # sql = "SELECT * FROM species_plus WHERE \"Listed under\"=\"{0}\"".format(input_taxon)
+        # df = db.run_query(sql, conn)
+        if len(df) == 0:
             print("Unable to find species in Species+ database...")
             return map_fig
     df.drop(labels=["Scientific Name", "Listed under", "Listing", "Party", "Full note"], axis=1, inplace=True)
@@ -225,42 +223,114 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
     df = df.transpose()
     df.reset_index(inplace=True)
     df.rename(columns={"index": "Distribution", 0: "Country"}, inplace=True)
+    if len(df.Country.value_counts()) == 0:
+        print("No distribution data is available...")
+        return map_fig
     df.set_index(["Distribution"])
     df = df.apply(lambda x: x.str.split(',').explode())
+
+
     def row_name_to_alpha3(row, col):
         return convert_countrycode(row[col], "name", "alpha_3")
+
+    def distribution_to_color(row, col):
+        if row[col] == "Native_Distribution":
+            return 0.1
+        if row[col] == "Reintroduced_Distribution":
+            return 0.2
+        if row[col] == "Introduced_Distribution":
+            return 0.3
+        if row[col] == "Introduced(?)_Distribution":
+            return 0.4
+        if row[col] == "Distribution_Uncertain":
+            return 0.5
+        if row[col] == "Extinct(?)_Distribution":
+            return 0.6
+        if row[col] == "Extinct_Distribution":
+            return 0.7
+
+    def distribution_to_color_prioritized(row, col):
+        if "Uncertain" in row[col]:
+            return 0.5
+        if "Extinct (?)" in row[col]:
+            return 0.7
+        if "Extinct" in row[col]:
+            return 0.6
+        if "Native" in row[col]:
+            return 0.1
+        if "Introduced" in row[col]:
+            return 0.3
+        if "Introduced (?)" in row[col]:
+            return 0.4
+        if "Reintro" in row[col]:
+            return 0.2
+
+
+    def text_generation(row, col):
+        if row[col] == "Native_Distribution":
+            return "Native"
+        if row[col] == "Reintroduced_Distribution":
+            return "Reintro"
+        if row[col] == "Introduced_Distribution":
+            return "Introduced"
+        if row[col] == "Introduced(?)_Distribution":
+            return "Possibly Introduced"
+        if row[col] == "Distribution_Uncertain":
+            return "Uncertain"
+        if row[col] == "Extinct(?)_Distribution":
+            return "Possibly Extinct"
+        if row[col] == "Extinct_Distribution":
+            return "Extinct"
+
+    def fix_reintro(row, col):
+        if "Reintro" in row[col]:
+            new_string = row[col].replace("Reintro", "Reintrodeuced")
+            return new_string
+
     df["alpha_3"] = df.apply(lambda row: row_name_to_alpha3(row, "Country"), axis=1)
-    #print(df.to_string())
+    df["text"] = df.apply(lambda row: text_generation(row, "Distribution"), axis=1)
+    df = df.groupby(["Country", "alpha_3"])["text"].apply('<br> '.join).reset_index()
+    df["color_category"] = df.apply(lambda row: distribution_to_color_prioritized(row, "text"), axis=1)
 
-    # def create_choropleth(country_string):
-    #     countries = country_string.split(sep=",")
-    #     print(countries)
-    #     countries_iso = []
-    #     Unknown_countries = []
-    #     for country in countries:
-    #         try:
-    #             country_pycountry = pycountry.countries.get(name=country)
-    #             countries_iso.append(country_pycountry.alpha_3)
-    #         except AttributeError as err:
-    #             print(f"The error '{err}' occurred while converting to alpha_2 in add_iso_cols_to_row")
-    #             Unknown_countries.append(country)
-    #     print(f"Result: {countries_iso}")
-    #     print(f"Unknown: {Unknown_countries}")
-
-    map_fig.add_trace(px.choropleth(
-        data_frame=df,
-        locations="alpha_3",
+    map_fig.add_trace(go.Choropleth(
+        z=df["color_category"],
+        locations=df["alpha_3"],
         locationmode="ISO-3",
-        color="Distribution",
-        #color_discrete_map={"Extinct_Distribution" : "red"}
-
+        text="<b>Country:</b> " + df["Country"] + "<br>" + "<b>Distribution Status (2022):</b><br> " + df["text"],
+        hoverinfo="text",
+        visible=True,
+        zmin=0,
+        zmax=1,
+        colorscale=[
+            [0, "rgba(77,77,77,0)"], # Dummy
+            [0.1, "rgba(26,152,80,0.5)"], # Native
+            [0.2, "rgba(145,207,96,0.5)"], # Reintroduced
+            [0.3, "rgba(217,239,139,0.5)"], # Introduced
+            [0.4, "rgba(217,239,139,0.25)"], # Introduced (?)
+            [0.5, "rgba(254,224,139,0.5)"], # Uncertain
+            [0.6, "rgba(215,48,39,0.5)"], # Extinct (?)
+            [0.7, "rgba(215,48,39,0.5)"], # Extinct
+            [0.8, "rgba(77,77,77,0)"], # Dummy
+            [0.9, "rgba(77,77,77,0)"], # Dummy
+            [1, "rgba(77,77,77,0)"],  # Dummy
+        ],
+        hoverlabel=dict(
+            bgcolor="white",
+            bordercolor="black",
+            font_size=12,
+            font_family="Verdana",
+            align="left",
+        ),
+        # marker=dict(
+        #     line=dict(
+        #         color="red",
+        #         width="10"
+        #     ),
+        # ),
+        #colorscale="Bluered",
+        showscale=False,
     ))
     return map_fig
-    # targets = set(df.columns.to_numpy().tolist())
-    # ignore_cols = {"Scientific Name", "Listed under", "Listing", "Party", "Full note"}
-    # for col in targets.difference(ignore_cols):
-    #     create_choropleth(str(df[col].values[0]))
-    # return map_fig
 
 
 """
@@ -339,7 +409,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         return lat3, lon3
 
     def row_alpha2_to_name(row, col):
-        return convert_countrycode(row[col], "alpha2", "name")
+        return convert_countrycode(row[col], "alpha_2", "name")
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
@@ -371,6 +441,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                     width=shipment_traces["width"][i],
                     color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
             )),
+    # Info Dot
     map_fig.add_trace(
         go.Scattergeo(
             lat=shipment_traces["mid_latitude"],
@@ -388,18 +459,16 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                     width=2,
                     color="lightgray"
                 ),
+            ),
+            hoverlabel=dict(
+                bgcolor="white",
+                bordercolor="black",
+                font_size=12,
+                font_family="Verdana",
+                align="left",
             )
 
         )),
-    map_fig.update_layout(
-        hoverlabel=dict(
-            bgcolor="white",
-            bordercolor="black",
-            font_size=12,
-            font_family="Verdana",
-            align="left",
-        )
-    )
     end = time.time()
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
