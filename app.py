@@ -37,7 +37,7 @@ null_graph = {
         },
         "annotations": [
             {
-                "text": "No data for <br> selected period",
+                "text": " <br> <br> Loading...",
                 "xref": "paper",
                 "yref": "paper",
                 "showarrow": False,
@@ -144,23 +144,38 @@ spatial_map = html.Div(
 
 temporal_control = dbc.Card(
     [
-        dbc.CardHeader("Temporal Filters"),
+        dbc.CardHeader("Main Filters"),
         dbc.CardBody(
-            dbc.InputGroup(
-                [
-                    dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
-                    dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
-                               style={"margin-left": "-5px"}),
-                    dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4, minlength=4,
-                              min=1975, max=2022,
-                              style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
-                                     }, debounce=True),
-                    dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
-                    dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
-                               style={"margin-left": "-5px"}),
-                    dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
-                               style={"margin-left": "-5px"}),
-                ])
+            [
+                dbc.InputGroup(
+                    [
+                        dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
+                        dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
+                                   style={"margin-left": "-5px"}),
+                        dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4,
+                                  minlength=4,
+                                  min=1975, max=2022,
+                                  style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
+                                         }, debounce=True),
+                        dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
+                        dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
+                                   style={"margin-left": "-5px"}),
+                        dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
+                                   style={"margin-left": "-5px"}),
+                    ]),
+            ]
+            , className="custom_cardBody_padding"),
+    ]
+)
+
+map_filters = dbc.Card(
+    [
+        dbc.CardHeader("Map Filters"),
+        dbc.CardBody(
+            [
+                html.P("Minimum Amount of Shipments to Draw"),
+                html.Div(dcc.Slider(0, 10, 1, value=0, id="map_shipments_lower_tol"), style={"margin-top": "10px"}),
+            ]
             , className="custom_cardBody_padding"),
     ]
 )
@@ -254,10 +269,9 @@ app.layout = dbc.Container(
         ),
         dbc.Row(
             [
-                html.Br(),
                 dbc.ButtonGroup([
                     total_badge, term_badge, purpose_badge, source_badge
-            ], class_name="custom_ButtonGroup")]),
+                ], class_name="custom_ButtonGroup")]),
         # Data
         dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
         dbc.Row(
@@ -278,13 +292,15 @@ app.layout = dbc.Container(
                                     [
                                         temporal_control,
                                         html.Br(),
-                                        filter_terms,
+                                        map_filters,
                                     ], md=5),
                                 dbc.Col(
                                     [
                                         filter_purpose,
                                         html.Br(),
-                                        filter_source
+                                        filter_source,
+                                        html.Br(),
+                                        filter_terms,
                                     ], md=7)],
                         ),
                     ]
@@ -298,17 +314,16 @@ app.layout = dbc.Container(
 
 """
 Search Callback
-""" \
+"""
 
-@ app.callback(
+
+@app.callback(
     Output("search_hidden_div", "children"),
     Output("memory", "data"),
     Output("temporal_start", "children"),
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Input("input_taxon", "value"))
-
-
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
     sql = "SELECT MIN(Year), Family FROM Temp.Taxon"
@@ -336,9 +351,10 @@ Temporal Callbacks
     Input("temporal_end", "n_clicks"))
 def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
     dev = True
+    dev_year = 1979
     if ctx.triggered_id == "temporal_start":
         if dev:
-            return 1995
+            return dev_year
         return memory["temporal_min"]
     elif ctx.triggered_id == "temporal_end":
         return 2022
@@ -348,7 +364,7 @@ def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, tempo
         return temporal_input - 1
     else:
         if dev:
-            return 1995
+            return dev_year
         return memory["temporal_min"]
 
 
@@ -445,11 +461,12 @@ Spatial Callback
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
     Input("filter_purpose", "value"),
-    Input("filter_source", "value"), prevent_initial_call=True)
-def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source):
+    Input("filter_source", "value"),
+    Input("map_shipments_lower_tol", "value"), prevent_initial_call=True)
+def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source, map_shipments_lower_tol):
     map_fig = pltbld.build_empty_map_graph()
     map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig)
+    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig)
     return map_fig
 
 

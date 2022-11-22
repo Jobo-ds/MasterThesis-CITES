@@ -377,12 +377,13 @@ Update the map figure with traces
 """
 
 
-def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_fig):
+def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig):
     import time
     start = time.time()
     # Setup dataframe and find connections to trace.
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
+    df.replace("XX", "Unknown", inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"], df2["width"], df2["opacity"], df2["last_shipment"] = 0, 0.0, 0.0, 0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
@@ -408,6 +409,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         else:
             Unknown_locations += 1
 
+    shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
     shipment_traces["width"] = round((shipment_traces["count"] / count_max) * 10, 2)
@@ -459,7 +461,8 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                                      "——————————" + "<br>" \
                                                     "<b># Shipments</b>: " + shipment_traces["count"].astype(
         str) + "<br>" + \
-                                     "<b>Last Shipments</b>: " + shipment_traces["last_shipment"].astype(str)
+                                     "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
+    print(shipment_traces.to_string())
 
     # Merge connections that go both directions (keeping the highest width, and opacity)
 
