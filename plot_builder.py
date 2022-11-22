@@ -9,6 +9,7 @@ from urllib.request import urlopen
 import math
 from itertools import product
 import numpy as np
+import random
 
 """
 Auxiliary functions
@@ -377,35 +378,18 @@ Update the map figure with traces
 """
 
 
-def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig):
+def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol,
+                     map_fig):
     import time
     start = time.time()
     # Setup dataframe and find connections to trace.
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
     df.replace("XX", "Unknown", inplace=True)
-    historic_ISO_dict = {"AN" : "BQ_",
-                         "CS" : "RS_",
-                         "DD" : "DE_",
-                         "NT" : "IQ_",
-                         "PC" : "FM_",
-                         "XA" : "Unknown_XA",
-                         "XC" : "Unknown_XC",
-                         "XE" : "Unknown_XE",
-                         "XF" : "Unknown_XF",
-                         "XM" : "Unknown_XM",
-                         "XS" : "Unknown_XS",
-                         "YU" : "HR_YU",
-                         "ZC" : "Unknown_ZC",
-                         "ZZ" : "Unknown_ZZ",
-                         }
-    df.replace({"Exporter": historic_ISO_dict}, inplace=True)
-    df.replace({"Importer": historic_ISO_dict}, inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"], df2["width"], df2["opacity"], df2["last_shipment"] = 0, 0.0, 0.0, 0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
-
 
     # Calculate styling of connections
     def opacity_decrease(x):
@@ -426,7 +410,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['last_shipment']] = current_year
         else:
             Unknown_locations += 1
-    print(shipment_traces.to_string())
     shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
@@ -434,19 +417,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     shipment_traces["width"].clip(1, axis=0, inplace=True)
     shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
     shipment_traces["mid_latitude"], shipment_traces["mid_longitude"] = 0.0, 0.0
-
-    json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
-    with urlopen(json_file) as response:
-        countries_json = json.load(response)
-    countries_json = pd.DataFrame(countries_json["ref_country_codes"])
-
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Importer', right_on='alpha2').drop(columns=['alpha2']).rename(
-        columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
-
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Exporter', right_on='alpha2').drop(columns=['alpha2']).rename(
-        columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
     def calculate_midpoint(row):
         # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
@@ -468,43 +438,71 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         return lat3, lon3
 
     def row_alpha2_to_name(row, col):
-        historic_ISO_dict = {"AN": "BQ_",
-                             "CS": "RS_",
-                             "DD": "DE_",
-                             "NT": "IQ_",
-                             "PC": "FM_",
-                             "XA": "Unknown_XA",
-                             "XC": "Unknown_XC",
-                             "XE": "Unknown_XE",
-                             "XF": "Unknown_XF",
-                             "XM": "Unknown_XM",
-                             "XS": "Unknown_XS",
-                             "YU": "HR_YU",
-                             "ZC": "Unknown_ZC",
-                             "ZZ": "Unknown_ZZ",
-                             }
-        df.replace({"Exporter": historic_ISO_dict}, inplace=True)
-        df.replace({"Importer": historic_ISO_dict}, inplace=True)
-        if row[col] in
         return convert_countrycode(row[col], "alpha_2", "name")
+
+    shipment_traces["Importer_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Importer"), axis=1)
+    shipment_traces["Exporter_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Exporter"), axis=1)
+    historic_ISO_dict = {"AN": "BQ",
+                         "CS": "RS",
+                         "DD": "DE",
+                         "NT": "IQ",
+                         "PC": "FM",
+                         "XA": "Unknown",
+                         "XC": "Unknown",
+                         "XE": "Unknown",
+                         "XF": "Unknown",
+                         "XM": "Unknown",
+                         "XS": "Unknown",
+                         "YU": "HR",
+                         "ZC": "Unknown",
+                         "ZZ": "Unknown",
+                         }
+    shipment_traces.replace({"Exporter": historic_ISO_dict}, inplace=True)
+    shipment_traces.replace({"Importer": historic_ISO_dict}, inplace=True)
+
+    json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
+    with urlopen(json_file) as response:
+        countries_json = json.load(response)
+    countries_json = pd.DataFrame(countries_json["ref_country_codes"])
+
+    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
+                                            left_on='Importer', right_on='alpha2').drop(columns=['alpha2']).rename(
+        columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
+
+    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
+                                            left_on='Exporter', right_on='alpha2').drop(columns=['alpha2']).rename(
+        columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
     shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
-    shipment_traces["Importer_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Importer"), axis=1)
-    shipment_traces["Exporter_full"] = shipment_traces.apply(lambda row: row_alpha2_to_name(row, "Exporter"), axis=1)
+
     shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" + \
                                      "<b>Importer</b>: " + shipment_traces["Importer_full"] + "<br>" + \
                                      "——————————" + "<br>" \
                                                     "<b># Shipments</b>: " + shipment_traces["count"].astype(
         str) + "<br>" + \
                                      "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
+    shipment_traces.drop(["last_shipment"], axis=1)
+
+    def move_midpoint(row):
+        row["mid_latitude"] = row["mid_latitude"] + random.uniform(3.0,4.0)
+        row["mid_longitude"] = row["mid_longitude"] + random.uniform(3.0,4.0)
+        return row
+
     shipment_traces_dupTest = shipment_traces.copy()
     print("Original:")
     print(shipment_traces.to_string())
     # Move midpoint slightly for mirrored connections
-    print(shipment_traces_dupTest.duplicated(subset=["mid_latitude", "mid_longitude"]))
+    # print(shipment_traces_dupTest.duplicated(subset=["mid_latitude", "mid_longitude"]))
+
+    rows_series = shipment_traces[["mid_latitude", "mid_longitude"]].duplicated(keep="first")
+    rows = rows_series[rows_series].index.values
+    print(rows)
+    shipment_traces = shipment_traces.apply(
+        lambda row: (move_midpoint(row) if row.name in rows else row), axis=1)
+
     print("Modified:")
-    print(shipment_traces_dupTest.to_string())
+    print(shipment_traces.to_string())
 
     # Merge connections that go both directions (keeping the highest width, and opacity)
 
@@ -557,4 +555,3 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
     return map_fig
-
