@@ -384,10 +384,28 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
     df.replace("XX", "Unknown", inplace=True)
+    historic_ISO_dict = {"AN" : "BQ_",
+                         "CS" : "RS_",
+                         "DD" : "DE_",
+                         "NT" : "IQ_",
+                         "PC" : "FM_",
+                         "XA" : "Unknown_XA",
+                         "XC" : "Unknown_XC",
+                         "XE" : "Unknown_XE",
+                         "XF" : "Unknown_XF",
+                         "XM" : "Unknown_XM",
+                         "XS" : "Unknown_XS",
+                         "YU" : "HR_YU",
+                         "ZC" : "Unknown_ZC",
+                         "ZZ" : "Unknown_ZZ",
+                         }
+    df.replace({"Exporter": historic_ISO_dict}, inplace=True)
+    df.replace({"Importer": historic_ISO_dict}, inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"], df2["width"], df2["opacity"], df2["last_shipment"] = 0, 0.0, 0.0, 0
     shipment_traces = df2.set_index(['Exporter', 'Importer'])
     shipment_traces.sort_index(level=0, inplace=True)
+
 
     # Calculate styling of connections
     def opacity_decrease(x):
@@ -408,7 +426,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
             shipment_traces.loc[(row["Exporter"], row["Importer"]), ['last_shipment']] = current_year
         else:
             Unknown_locations += 1
-
+    print(shipment_traces.to_string())
     shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
@@ -450,6 +468,24 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         return lat3, lon3
 
     def row_alpha2_to_name(row, col):
+        historic_ISO_dict = {"AN": "BQ_",
+                             "CS": "RS_",
+                             "DD": "DE_",
+                             "NT": "IQ_",
+                             "PC": "FM_",
+                             "XA": "Unknown_XA",
+                             "XC": "Unknown_XC",
+                             "XE": "Unknown_XE",
+                             "XF": "Unknown_XF",
+                             "XM": "Unknown_XM",
+                             "XS": "Unknown_XS",
+                             "YU": "HR_YU",
+                             "ZC": "Unknown_ZC",
+                             "ZZ": "Unknown_ZZ",
+                             }
+        df.replace({"Exporter": historic_ISO_dict}, inplace=True)
+        df.replace({"Importer": historic_ISO_dict}, inplace=True)
+        if row[col] in
         return convert_countrycode(row[col], "alpha_2", "name")
 
     shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
@@ -462,7 +498,13 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                                                     "<b># Shipments</b>: " + shipment_traces["count"].astype(
         str) + "<br>" + \
                                      "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
+    shipment_traces_dupTest = shipment_traces.copy()
+    print("Original:")
     print(shipment_traces.to_string())
+    # Move midpoint slightly for mirrored connections
+    print(shipment_traces_dupTest.duplicated(subset=["mid_latitude", "mid_longitude"]))
+    print("Modified:")
+    print(shipment_traces_dupTest.to_string())
 
     # Merge connections that go both directions (keeping the highest width, and opacity)
 
