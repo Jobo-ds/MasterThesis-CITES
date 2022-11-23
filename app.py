@@ -16,6 +16,8 @@ import numpy as np
 Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
+dev = True
+
 
 # db.build_species_plus_table("cites")
 
@@ -144,7 +146,7 @@ spatial_map = html.Div(
 
 temporal_control = dbc.Card(
     [
-        dbc.CardHeader("Main Filters"),
+        dbc.CardHeader("Temporal Control & Data"),
         dbc.CardBody(
             [
                 dbc.InputGroup(
@@ -326,12 +328,16 @@ Search Callback
     Input("input_taxon", "value"))
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
-    sql = "SELECT MIN(Year), Family FROM Temp.Taxon"
+    sql = "SELECT MIN(Year), Family FROM temp.Taxon"
     basic_data = db.run_query(sql, conn)
     memory = {}
     memory["temporal_min"] = int(basic_data['MIN(Year)'].values[0])
     memory["family"] = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
+    # sql_2 = "SELECT Appendix, MIN(Year) from temp.taxon GROUP BY Appendix"
+    # appendix_df = db.run_query(sql_2, conn)
+    # appendix_df = pd.read_csv("CITES/History_of_CITES_Listings_2022-11-22 04 10.csv")
+    # print(appendix_df.to_string(max_rows=10))
 
     return "search_active", memory, memory["temporal_min"], kingdom, "Family: " + memory["family"]
 
@@ -350,8 +356,8 @@ Temporal Callbacks
     Input("temporal_minus", "n_clicks"),
     Input("temporal_end", "n_clicks"))
 def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
-    dev = True
-    dev_year = 1979
+
+    dev_year = 1992
     if ctx.triggered_id == "temporal_start":
         if dev:
             return dev_year
@@ -466,8 +472,9 @@ Spatial Callback
 def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source, map_shipments_lower_tol):
     map_fig = pltbld.build_empty_map_graph()
     map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig)
-    return map_fig
+    if dev:
+        return pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, 8, map_fig)
+    return pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig)
 
 
 if __name__ == "__main__":

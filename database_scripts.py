@@ -98,7 +98,7 @@ def build_main_df(input_taxon, conn, ctxtriggered_id):
             print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
     else:
         try:
-            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Unknown') AS Purpose, ifnull(Source, 'Unknown') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Unknown') AS Purpose, ifnull(Source, 'Unknown') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
             print("Temporary taxon table created.")
         except sqlite3.Error as err:
@@ -359,3 +359,37 @@ def build_species_plus_table(database):
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while importing species + database")
     print("Species+ Database creation complete")
+
+def build_history_table(database):
+    history_csv = "CITES/History_of_CITES_Listings.csv"
+    # Optimize Pandas Import
+    # Get columns for database
+    with open(history_csv, 'r') as f:
+        csv_reader = csv.DictReader(f)
+        cols = csv_reader.fieldnames
+    dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
+    df = pd.read_csv(history_csv, dtype=dtypes_dict)
+    # Drop Cols
+    drop_cols = ["TaxonId", "Phylum", "Class", "Order", "Family" , "Genus", "Species", "Subspecies",
+                 "AuthorYear", "PartyIsoCode", "PartyFullName", "#AnnotationSymbol", "AnnotationSpanish", "AnnotationFrench", "NomenclatureNote"]
+    df.drop(labels=drop_cols, axis="columns", inplace=True)
+    conn = connect_sqlite3(database)
+    table = "history_listings"
+    drop_table_if_exist(conn, table)
+    create_table_from_df(conn, table, df)
+    # Sort Cols for nicety
+    df = df.reindex(sorted(df.columns), axis=1)
+    # first_column = df.pop("Scientific Name")
+    # second_column = df.pop("Listed under")
+    # third_column = df.pop("Listing")
+    # fourth_column = df.pop("Party")
+    # df.insert(0, "Scientific Name", first_column)
+    # df.insert(1, "Listed under", second_column)
+    # df.insert(2, "Listing", third_column)
+    # df.insert(3, "Party", fourth_column)
+    # Insert Data to table database
+    try:
+        df.to_sql(table, conn, if_exists='replace', index=False)
+    except sqlite3.Error as err:
+        print(f"The error '{err}' occurred while importing species + database")
+    print("History Listing Database creation complete")

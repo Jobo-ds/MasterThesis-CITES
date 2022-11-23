@@ -162,6 +162,7 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         df = db.run_query(sql, conn)
         df.fillna(value="Unknown", axis="index", inplace=True)
 
+
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while 'getting data from temp table' in build_line_diagram")
 
@@ -193,6 +194,8 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                         "T": "Commercial",
                         "Z": "Zoo", }
         df.replace({"Purpose": purpose_dict}, inplace=True)
+
+    # Create dict of appendix status
 
     fig = px.line(
         df,
@@ -432,10 +435,10 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         lon2 = to_radians(row["imp_longitude"])
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
-        lat3 = to_degress(math.atan2(math.sin(lat1) + math.sin(lat2),
+        row["mid_latitude"] = to_degress(math.atan2(math.sin(lat1) + math.sin(lat2),
                                      math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
-        lon3 = to_degress(lon1 + math.atan2(By, math.cos(lat1) + Bx))
-        return lat3, lon3
+        row["mid_longitude"] = to_degress(lon1 + math.atan2(By, math.cos(lat1) + Bx))
+        return row
 
     def row_alpha2_to_name(row, col):
         return convert_countrycode(row[col], "alpha_2", "name")
@@ -460,6 +463,8 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     shipment_traces.replace({"Exporter": historic_ISO_dict}, inplace=True)
     shipment_traces.replace({"Importer": historic_ISO_dict}, inplace=True)
 
+    # Adding Latitude/Longitude to Importer, Exporter & Midpoint
+
     json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
     with urlopen(json_file) as response:
         countries_json = json.load(response)
@@ -473,8 +478,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                                             left_on='Exporter', right_on='alpha2').drop(columns=['alpha2']).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
-    shipment_traces["mid_latitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[0], axis=1)
-    shipment_traces["mid_longitude"] = shipment_traces.apply(lambda row: calculate_midpoint(row)[1], axis=1)
+    shipment_traces = shipment_traces.apply(lambda row: calculate_midpoint(row), axis=1)
 
     shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" + \
                                      "<b>Importer</b>: " + shipment_traces["Importer_full"] + "<br>" + \
@@ -484,29 +488,18 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                                      "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
     shipment_traces.drop(["last_shipment"], axis=1)
 
+    # Look for duplicate midpoints and move them slightly if found.
+
     def move_midpoint(row):
         row["mid_latitude"] = row["mid_latitude"] + random.uniform(3.0,4.0)
         row["mid_longitude"] = row["mid_longitude"] + random.uniform(3.0,4.0)
         return row
 
-    shipment_traces_dupTest = shipment_traces.copy()
-    print("Original:")
-    print(shipment_traces.to_string())
-    # Move midpoint slightly for mirrored connections
-    # print(shipment_traces_dupTest.duplicated(subset=["mid_latitude", "mid_longitude"]))
-
     rows_series = shipment_traces[["mid_latitude", "mid_longitude"]].duplicated(keep="first")
     rows = rows_series[rows_series].index.values
-    print(rows)
     shipment_traces = shipment_traces.apply(
         lambda row: (move_midpoint(row) if row.name in rows else row), axis=1)
 
-    print("Modified:")
-    print(shipment_traces.to_string())
-
-    # Merge connections that go both directions (keeping the highest width, and opacity)
-
-    # print(shipment_traces.to_string())
 
     # Add traces to map figure
     for i in range(len(shipment_traces)):
