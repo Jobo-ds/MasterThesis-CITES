@@ -548,3 +548,9 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     elapsed_time = end - start
     print(f"Timer: {elapsed_time}")
     return map_fig
+
+def history_listing_generator(input_taxon,conn):
+    sql = "SELECT * FROM history_listings WHERE FullName=\"{}\"".format(input_taxon)
+    df = db.run_query(sql, conn)
+    print(df.to_string())
+    return df

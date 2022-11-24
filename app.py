@@ -16,7 +16,7 @@ import numpy as np
 Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
-dev = True
+dev = False
 
 
 # db.build_species_plus_table("cites")
@@ -56,7 +56,8 @@ Layout Components
 """
 header = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Papio hamadryas", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), "Ammotragus lervia", id="input_taxon"),
+        # Ammotragus lervia (Distributions and History Listings)
         # Good examples: Bos sauveli
         # Tridacna gigas (Has almost all distributions)
         # Tridacna derasa (Has all "Possibly" distribution)
@@ -144,6 +145,8 @@ spatial_map = html.Div(
     ]
     , style={"margin": "auto auto"})
 
+history_listing = html.Div(id="history_listing_table")
+
 temporal_control = dbc.Card(
     [
         dbc.CardHeader("Temporal Control & Data"),
@@ -160,11 +163,8 @@ temporal_control = dbc.Card(
                                   style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
                                          }, debounce=True),
                         dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
-                        dbc.Button("2022", outline=True, color="secondary", className="me-1", id="temporal_end",
-                                   style={"margin-left": "-5px"}),
-                        dbc.Button(">", outline=True, color="secondary", className="me-1", id="temporal_animate",
-                                   style={"margin-left": "-5px"}),
                     ]),
+                history_listing
             ]
             , className="custom_cardBody_padding"),
     ]
@@ -325,6 +325,7 @@ Search Callback
     Output("temporal_start", "children"),
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
+    Output("history_listing_table", "children"),
     Input("input_taxon", "value"))
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
@@ -334,12 +335,18 @@ def create_taxon_temp_table(input_taxon):
     memory["temporal_min"] = int(basic_data['MIN(Year)'].values[0])
     memory["family"] = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
-    # sql_2 = "SELECT Appendix, MIN(Year) from temp.taxon GROUP BY Appendix"
-    # appendix_df = db.run_query(sql_2, conn)
-    # appendix_df = pd.read_csv("CITES/History_of_CITES_Listings_2022-11-22 04 10.csv")
-    # print(appendix_df.to_string(max_rows=10))
+    history_listing_data = pltbld.history_listing_generator(input_taxon, conn)
+    history_listing_table = dash_table.DataTable(
+        rows=history_listing_data.to_dict('rows'),
+        columns=history_listing_data.columns,
+        row_selectable=False,
+        filterable=False,
+        sortable=True,
+        selected_row_indices=list(history_listing_data.index),  # all rows selected by default
+        id='3'
+    )
 
-    return "search_active", memory, memory["temporal_min"], kingdom, "Family: " + memory["family"]
+    return "search_active", memory, memory["temporal_min"], kingdom, "Family: " + memory["family"], history_listing_table
 
 
 """
@@ -353,24 +360,17 @@ Temporal Callbacks
     Input("temporal_input", "value"),
     Input("temporal_start", "n_clicks"),
     Input("temporal_plus", "n_clicks"),
-    Input("temporal_minus", "n_clicks"),
-    Input("temporal_end", "n_clicks"))
-def temporal_buttons(memory, temporal_input, temporal_start, temporal_end, temporal_plus, temporal_minus):
-
-    dev_year = 1992
+    Input("temporal_minus", "n_clicks"),)
+def temporal_buttons(memory, temporal_input, temporal_start, temporal_plus, temporal_minus):
+    print(memory["temporal_min"])
+    print(memory)
     if ctx.triggered_id == "temporal_start":
-        if dev:
-            return dev_year
         return memory["temporal_min"]
-    elif ctx.triggered_id == "temporal_end":
-        return 2022
     elif ctx.triggered_id == "temporal_plus":
         return temporal_input + 1
     elif ctx.triggered_id == "temporal_minus":
         return temporal_input - 1
     else:
-        if dev:
-            return dev_year
         return memory["temporal_min"]
 
 
