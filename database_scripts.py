@@ -335,7 +335,7 @@ def build_species_plus_table(database):
     dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
     df = pd.read_csv(speciesplus_csv, dtype=dtypes_dict)
     # Drop Cols
-    drop_cols = ["Id", "Kingdom", "Family", "Phylum", "Class", "Order", "Genus", "Species", "Subspecies",
+    drop_cols = ["Id", "Family", "Phylum", "Class", "Order", "Genus", "Species", "Subspecies",
                  "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes",]
     df.drop(labels=drop_cols, axis="columns", inplace=True)
     df.rename(columns={"NativeDistributionFullNames": "Native_Distribution"}, inplace=True)
@@ -345,14 +345,16 @@ def build_species_plus_table(database):
     create_table_from_df(conn, table, df)
     # Sort Cols for nicety
     df = df.reindex(sorted(df.columns), axis=1)
+    actually_first_column = df.pop("Kingdom")
     first_column = df.pop("Scientific Name")
     second_column = df.pop("Listed under")
     third_column = df.pop("Listing")
     fourth_column = df.pop("Party")
-    df.insert(0, "Scientific Name", first_column)
-    df.insert(1, "Listed under", second_column)
-    df.insert(2, "Listing", third_column)
-    df.insert(3, "Party", fourth_column)
+    df.insert(0, "Kingdom", actually_first_column)
+    df.insert(1, "Scientific Name", first_column)
+    df.insert(2, "Listed under", second_column)
+    df.insert(3, "Listing", third_column)
+    df.insert(4, "Party", fourth_column)
     # Insert Data to table database
     try:
         df.to_sql(table, conn, if_exists='replace', index=False)
@@ -370,8 +372,8 @@ def build_history_table(database):
     dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
     df = pd.read_csv(history_csv, dtype=dtypes_dict)
     # Drop Cols
-    drop_cols = ["TaxonId", "Phylum", "Class", "Order", "Family" , "Genus", "Species", "Subspecies",
-                 "AuthorYear", "PartyIsoCode", "PartyFullName", "#AnnotationSymbol", "AnnotationSpanish", "AnnotationFrench", "NomenclatureNote"]
+    drop_cols = ["TaxonId", "Phylum", "Class", "Order", "Family" , "Genus", "Species", "Subspecies", "FullAnnotationEnglish", "#Annotation", "Kingdom",
+                 "AuthorYear", "PartyIsoCode", "PartyFullName", "#AnnotationSymbol", "AnnotationSpanish", "AnnotationFrench", "NomenclatureNote", "RankName"]
     df.drop(labels=drop_cols, axis="columns", inplace=True)
     conn = connect_sqlite3(database)
     table = "history_listings"
@@ -379,15 +381,22 @@ def build_history_table(database):
     create_table_from_df(conn, table, df)
     # Sort Cols for nicety
     df = df.reindex(sorted(df.columns), axis=1)
-    # first_column = df.pop("Scientific Name")
-    # second_column = df.pop("Listed under")
-    # third_column = df.pop("Listing")
-    # fourth_column = df.pop("Party")
-    # df.insert(0, "Scientific Name", first_column)
-    # df.insert(1, "Listed under", second_column)
-    # df.insert(2, "Listing", third_column)
-    # df.insert(3, "Party", fourth_column)
+    first_column = df.pop("Appendix")
+    second_column = df.pop("FullName")
+    third_column = df.pop("IsCurrent")
+    fourth_column = df.pop("EffectiveAt")
+    fifth_column = df.pop("ChangeType")
+    df.insert(0, "Appendix", first_column)
+    df.insert(1, "FullName", second_column)
+    df.insert(2, "IsCurrent", third_column)
+    df.insert(3, "EffectiveAt", fourth_column)
+    df.insert(3, "ChangeType", fifth_column)
+    print(df.to_string(max_rows=1))
+    df["EffectiveAt"] = pd.to_datetime(df["EffectiveAt"], format="%d/%m/%Y")
+    df.sort_values(by=["FullName", "EffectiveAt"], ascending=False, inplace=True)
+    print(type(df.IsCurrent[0]))
     # Insert Data to table database
+    print(df.to_string(max_rows=20))
     try:
         df.to_sql(table, conn, if_exists='replace', index=False)
     except sqlite3.Error as err:

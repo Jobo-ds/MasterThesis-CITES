@@ -1,13 +1,17 @@
 /* Default HTML Tags */
 
 p {
-	margin-bottom: 0px !important;
+	margin-bottom: 0.5rem !important;
 }
 
 body {
 	background-color: #eeeeee; !important;
 	background: #eeeeee; !important;
     margin: 0 !important;
+}
+
+.fakeH6 {
+    font-size:
 }
 
 /* Buttons */

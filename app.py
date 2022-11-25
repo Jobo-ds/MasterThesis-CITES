@@ -27,7 +27,7 @@ Init DASH
 
 # visit http://127.0.0.1:8050/ in your web browser.
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP])
 
 null_graph = {
     "layout": {
@@ -56,16 +56,16 @@ Layout Components
 """
 header = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Ammotragus lervia", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), "Agapornis roseicollis", id="input_taxon"),
         # Ammotragus lervia (Distributions and History Listings)
         # Good examples: Bos sauveli
         # Tridacna gigas (Has almost all distributions)
         # Tridacna derasa (Has all "Possibly" distribution)
         # Papio hamadryas
+        # Agapornis roseicollis
         html.Div(id="search_hidden_div", style={"display": "none"}),
         html.Div(id="trashcan_1", style={"display": "none"}),
-        html.Div(id="trashcan_2", style={"display": "none"}),
-        dcc.Store(id='memory')
+        html.Div(id="trashcan_2", style={"display": "none"})
 
     ]
 )
@@ -157,13 +157,14 @@ temporal_control = dbc.Card(
                         dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
                         dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
                                    style={"margin-left": "-5px"}),
-                        dbc.Input(id="temporal_input", placeholder="Input Year...", type="number", maxlength=4,
+                        dbc.Input(value="1995", id="temporal_input", placeholder="Enter year...", type="number", maxlength=4,
                                   minlength=4,
                                   min=1975, max=2022,
                                   style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
                                          }, debounce=True),
                         dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
                     ]),
+                html.P("History Listings", style={"margin-top" : "0.5rem"}),
                 history_listing
             ]
             , className="custom_cardBody_padding"),
@@ -321,32 +322,22 @@ Search Callback
 
 @app.callback(
     Output("search_hidden_div", "children"),
-    Output("memory", "data"),
     Output("temporal_start", "children"),
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Output("history_listing_table", "children"),
-    Input("input_taxon", "value"))
+    Input("input_taxon", "value"),
+)
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
     sql = "SELECT MIN(Year), Family FROM temp.Taxon"
     basic_data = db.run_query(sql, conn)
-    memory = {}
-    memory["temporal_min"] = int(basic_data['MIN(Year)'].values[0])
-    memory["family"] = str(basic_data['Family'].values[0])
+    temporal_min = int(basic_data['MIN(Year)'].values[0])
+    family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
-    history_listing_data = pltbld.history_listing_generator(input_taxon, conn)
-    history_listing_table = dash_table.DataTable(
-        rows=history_listing_data.to_dict('rows'),
-        columns=history_listing_data.columns,
-        row_selectable=False,
-        filterable=False,
-        sortable=True,
-        selected_row_indices=list(history_listing_data.index),  # all rows selected by default
-        id='3'
-    )
-
-    return "search_active", memory, memory["temporal_min"], kingdom, "Family: " + memory["family"], history_listing_table
+    history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
+    print("search_active", temporal_min, kingdom, "Family: " + family, history_listing_table)
+    return "search_active", temporal_min, kingdom, "Family: " + family, history_listing_table
 
 
 """
@@ -356,22 +347,21 @@ Temporal Callbacks
 
 @app.callback(
     Output("temporal_input", "value"),
-    Input("memory", "data"),
     Input("temporal_input", "value"),
-    Input("temporal_start", "n_clicks"),
+    Input("temporal_start", "value"),
     Input("temporal_plus", "n_clicks"),
-    Input("temporal_minus", "n_clicks"),)
-def temporal_buttons(memory, temporal_input, temporal_start, temporal_plus, temporal_minus):
-    print(memory["temporal_min"])
-    print(memory)
+    Input("temporal_minus", "n_clicks"), prevent_initial_call=True
+)
+def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_minus):
     if ctx.triggered_id == "temporal_start":
-        return memory["temporal_min"]
+        return temporal_start
     elif ctx.triggered_id == "temporal_plus":
-        return temporal_input + 1
+        return int(temporal_input) + 1
     elif ctx.triggered_id == "temporal_minus":
-        return temporal_input - 1
+        return int(temporal_input) - 1
     else:
-        return memory["temporal_min"]
+        return temporal_start
+
 
 
 """

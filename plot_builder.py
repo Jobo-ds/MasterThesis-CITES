@@ -10,6 +10,8 @@ import math
 from itertools import product
 import numpy as np
 import random
+from dash import Dash, html, dcc, ctx, dash_table
+import dash_bootstrap_components as dbc
 
 """
 Auxiliary functions
@@ -436,7 +438,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         Bx = math.cos(lat2) * math.cos(lon2 - lon1)
         By = math.cos(lat2) * math.sin(lon2 - lon1)
         row["mid_latitude"] = to_degress(math.atan2(math.sin(lat1) + math.sin(lat2),
-                                     math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
+                                                    math.sqrt((math.cos(lat1) + Bx) * (math.cos(lat1) + Bx) + By * By)))
         row["mid_longitude"] = to_degress(lon1 + math.atan2(By, math.cos(lat1) + Bx))
         return row
 
@@ -491,15 +493,14 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     # Look for duplicate midpoints and move them slightly if found.
 
     def move_midpoint(row):
-        row["mid_latitude"] = row["mid_latitude"] + random.uniform(3.0,4.0)
-        row["mid_longitude"] = row["mid_longitude"] + random.uniform(3.0,4.0)
+        row["mid_latitude"] = row["mid_latitude"] + random.uniform(3.0, 4.0)
+        row["mid_longitude"] = row["mid_longitude"] + random.uniform(3.0, 4.0)
         return row
 
     rows_series = shipment_traces[["mid_latitude", "mid_longitude"]].duplicated(keep="first")
     rows = rows_series[rows_series].index.values
     shipment_traces = shipment_traces.apply(
         lambda row: (move_midpoint(row) if row.name in rows else row), axis=1)
-
 
     # Add traces to map figure
     for i in range(len(shipment_traces)):
@@ -549,8 +550,42 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     print(f"Timer: {elapsed_time}")
     return map_fig
 
-def history_listing_generator(input_taxon,conn):
+
+def history_listing_generator(input_taxon, conn):
+    def create_tooltip(row):
+        if row["Tooltip"] is None:
+            return row
+        row["Icon"] = html.I(className="bi bi-info-circle-fill me-2",
+                      id="tooltip{}".format(row["ID2"])
+                      )
+
+        print(row)
+        return row
+
     sql = "SELECT * FROM history_listings WHERE FullName=\"{}\"".format(input_taxon)
     df = db.run_query(sql, conn)
-    print(df.to_string())
-    return df
+    if df.empty:
+        print("No data found in History Listings")
+        return "No Data in History Listings."
+    df.pop("FullName")
+    df.pop("IsCurrent")
+    df.rename(columns={"AnnotationEnglish": "Tooltip", "ChangeType": "Change"}, inplace=True)
+    df["Change"].replace({"RESERVATION_WITHDRAWAL": "Reservation withdrawal"}, inplace=True)
+    df["Change"] = df["Change"].str.title()
+    df["Year"] = pd.to_datetime(df["EffectiveAt"]).dt.year
+    df.pop("EffectiveAt")
+    year_column = df.pop("Year")
+    df.insert(0, "ID2", df.index)
+    df.insert(1, "Year", year_column)
+    df.insert(5, "Icon", "")
+    df = df.apply(lambda row: create_tooltip(row), axis=1)
+    history_listing_table = dash_table.DataTable(
+        id="history_listing_table",
+        data=df.to_dict("records"),
+        columns=[{"name": i, "id": i} for i in df.columns],
+        column_selectable=False,
+        cell_selectable=False,
+        style_as_list_view=True,
+
+    )
+    return history_listing_table
