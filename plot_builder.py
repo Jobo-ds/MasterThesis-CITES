@@ -552,16 +552,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
 
 
 def history_listing_generator(input_taxon, conn):
-    def create_tooltip(row):
-        if row["Tooltip"] is None:
-            return row
-        row["Icon"] = html.I(className="bi bi-info-circle-fill me-2",
-                      id="tooltip{}".format(row["ID2"])
-                      )
-
-        print(row)
-        return row
-
     sql = "SELECT * FROM history_listings WHERE FullName=\"{}\"".format(input_taxon)
     df = db.run_query(sql, conn)
     if df.empty:
@@ -577,15 +567,54 @@ def history_listing_generator(input_taxon, conn):
     year_column = df.pop("Year")
     df.insert(0, "ID2", df.index)
     df.insert(1, "Year", year_column)
-    df.insert(5, "Icon", "")
-    df = df.apply(lambda row: create_tooltip(row), axis=1)
-    history_listing_table = dash_table.DataTable(
-        id="history_listing_table",
-        data=df.to_dict("records"),
-        columns=[{"name": i, "id": i} for i in df.columns],
-        column_selectable=False,
-        cell_selectable=False,
-        style_as_list_view=True,
+    print(df.to_string())
 
-    )
-    return history_listing_table
+    table_header = [
+        html.Thead(html.Tr([html.Th("Year"), html.Th("Appx."), html.Th("Change"), html.Th("")]))
+    ]
+    table_rows = []
+
+    ind: object
+    for ind in df.index:
+        if df['Tooltip'][ind] is None:
+            table_rows.append(
+                html.Tr(
+                    [
+                        html.Td(df['Year'][ind]),
+                        html.Td(df['Appendix'][ind]),
+                        html.Td(df['Change'][ind]),
+                        html.Td([])
+                    ]
+                )
+            )
+        else:
+            table_rows.append(
+                html.Tr(
+                    [
+                        html.Td(df['Year'][ind]),
+                        html.Td(df['Appendix'][ind]),
+                        html.Td(df['Change'][ind]),
+                        html.Td([
+                            html.I(className="bi bi-info-circle-fill me-2",
+                                   id="tooltip{}".format(df["ID2"][ind])
+                                   ),
+                            dbc.Tooltip(
+                                df['Tooltip'][ind],
+                                target="tooltip{}".format(df["ID2"][ind]),
+                                placement="top",
+                            )
+                        ]
+                        )
+                    ]
+                )
+            )
+
+        table_body = [html.Tbody(table_rows)]
+
+        table = dbc.Table(
+            table_header + table_body,
+            borderless=True,
+            class_name="history_table_class",
+            hover=False,
+        )
+    return table

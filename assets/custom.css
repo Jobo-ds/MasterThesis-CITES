@@ -10,9 +10,20 @@ body {
     margin: 0 !important;
 }
 
-.fakeH6 {
-    font-size:
+/* history tbale */
+
+.history_table_class thead {
+	background-color: #bbbbbb26;
 }
+
+
+.history_table_class tbody th {
+  background-color: #36c;
+  color: #fff;
+  text-align: center;
+}
+
+
 
 /* Buttons */
 .custom_ButtonGroup {
