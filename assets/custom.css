@@ -23,7 +23,10 @@ body {
   text-align: center;
 }
 
-
+/* Fake H */
+.H6P {
+	font-weight: bold;
+}
 
 /* Buttons */
 .custom_ButtonGroup {

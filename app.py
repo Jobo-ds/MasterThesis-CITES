@@ -7,6 +7,7 @@ import pandas as pd
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
+import time
 
 import numpy as np
 
@@ -16,8 +17,7 @@ import numpy as np
 Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
-dev = False
-
+dev = True
 
 # db.build_species_plus_table("cites")
 
@@ -105,7 +105,6 @@ tab_terms_quantity = dbc.Card(
 plot_1 = dbc.Tabs(
     [
         dbc.Tab(tab_terms_trade, label="Term type per trade"),
-        dbc.Tab(tab_terms_quantity, label="Term per quantity"),
     ]
 )
 
@@ -124,7 +123,7 @@ tab_source = dbc.Card(
 tab_purpose = dbc.Card(
     [
         dbc.CardBody([
-            dcc.Loading(children=dcc.Graph(id="plot_2b_graph", figure=null_graph), type="default", color="white",
+            dcc.Loading(children=dcc.Graph(id="plot_purpose", figure=null_graph), type="default", color="white",
                         parent_className="loading_wrapper")
         ])
     ],
@@ -152,19 +151,39 @@ temporal_control = dbc.Card(
         dbc.CardHeader("Temporal Control & Data"),
         dbc.CardBody(
             [
-                dbc.InputGroup(
+                dbc.Row(html.P("Year Range", className="H6P", style={"margin-top": "0.5rem"}),),
+                dbc.Row(
                     [
-                        dbc.Button("1979", outline=True, color="secondary", className="me-1", id="temporal_start"),
-                        dbc.Button("-", outline=True, color="secondary", className="me-1", id="temporal_minus",
-                                   style={"margin-left": "-5px"}),
-                        dbc.Input(value="1995", id="temporal_input", placeholder="Enter year...", type="number", maxlength=4,
-                                  minlength=4,
-                                  min=1975, max=2022,
-                                  style={"width": "100px", "margin-left": "-5px", "border": "1px solid #95a5a6"
-                                         }, debounce=True),
-                        dbc.Button("+", outline=True, color="secondary", className="me-1", id="temporal_plus"),
-                    ]),
-                html.P("History Listings", style={"margin-top" : "0.5rem"}),
+                        dbc.Col(
+                            [
+
+                                html.P("1979", id="temporal_start", style={"margin-top": "5px"}),
+                            ], md=3,
+                        ),
+                        dbc.Col(html.P("to", style={"margin-top": "5px"}), md=2),
+                        dbc.Col(
+                            [
+                                dbc.InputGroup(
+                                    [
+                                        dbc.Button("-", outline=True, color="secondary", className="me-1",
+                                                   id="temporal_minus",
+                                                   style={"margin-left": "-5px"}),
+                                        dbc.Input(id="temporal_input", placeholder="Enter year...",
+                                                  type="number",
+                                                  maxlength=4,
+                                                  minlength=4,
+                                                  min=1975, max=2022,
+                                                  style={"width": "100px", "margin-left": "-5px",
+                                                         "border": "1px solid #95a5a6"
+                                                         }, debounce=True),
+                                        dbc.Button("+", outline=True, color="secondary", className="me-1",
+                                                   id="temporal_plus"),
+                                    ]),
+                            ], md=7
+                        )
+                    ]
+                ),
+                html.P("History Listings", className="H6P", style={"margin-top": "0.5rem"}),
                 history_listing
             ]
             , className="custom_cardBody_padding"),
@@ -336,7 +355,6 @@ def create_taxon_temp_table(input_taxon):
     family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
-    print("search_active", temporal_min, kingdom, "Family: " + family, history_listing_table)
     return "search_active", temporal_min, kingdom, "Family: " + family, history_listing_table
 
 
@@ -348,20 +366,21 @@ Temporal Callbacks
 @app.callback(
     Output("temporal_input", "value"),
     Input("temporal_input", "value"),
-    Input("temporal_start", "value"),
+    Input("temporal_start", "children"),
     Input("temporal_plus", "n_clicks"),
     Input("temporal_minus", "n_clicks"), prevent_initial_call=True
 )
 def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_minus):
-    if ctx.triggered_id == "temporal_start":
-        return temporal_start
+    if dev:
+        return 1999
+    if ctx.triggered_id == "temporal_input":
+        return int(temporal_input)
     elif ctx.triggered_id == "temporal_plus":
         return int(temporal_input) + 1
     elif ctx.triggered_id == "temporal_minus":
         return int(temporal_input) - 1
     else:
         return temporal_start
-
 
 
 """
@@ -404,7 +423,13 @@ Term Type per Trade Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot1(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    return pltbld.build_line_diagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    print("Building 'Purpose Plot' ...")
+    start = time.time()
+    plot = pltbld.build_line_diagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    end = time.time()
+    elapsed_time = round(end - start, 0)
+    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
+    return plot
 
 
 """
@@ -423,7 +448,13 @@ Source Plot Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot2a(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    return pltbld.build_line_diagram("Source", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    print("Building 'Purpose Plot' ...")
+    start = time.time()
+    plot = pltbld.build_line_diagram("Source", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    end = time.time()
+    elapsed_time = round(end - start, 0)
+    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
+    return plot
 
 
 """
@@ -432,7 +463,7 @@ Purpose Plot Callback
 
 
 @app.callback(
-    Output("plot_2b_graph", "figure"),
+    Output("plot_purpose", "figure"),
     Output("trashcan_2", "children"),
     Output("top_purpose", "children"),
     Input("search_hidden_div", "children"),
@@ -442,7 +473,13 @@ Purpose Plot Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot2b(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    return pltbld.build_line_diagram("Purpose", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    print("Building 'Purpose Plot' ...")
+    start = time.time()
+    plot = pltbld.build_line_diagram("Purpose", temporal_input, filter_terms, filter_purpose, filter_source, conn)
+    end = time.time()
+    elapsed_time = round(end - start, 0)
+    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
+    return plot
 
 
 """
@@ -459,12 +496,19 @@ Spatial Callback
     Input("filter_purpose", "value"),
     Input("filter_source", "value"),
     Input("map_shipments_lower_tol", "value"), prevent_initial_call=True)
-def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source, map_shipments_lower_tol):
+def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source,
+              map_shipments_lower_tol):
+    print("Building map ...")
+    start = time.time()
+
     map_fig = pltbld.build_empty_map_graph()
     map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    if dev:
-        return pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, 8, map_fig)
-    return pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol, map_fig)
+    #map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
+     #                              map_shipments_lower_tol, map_fig)
+    end = time.time()
+    elapsed_time = round(end - start, 0)
+    print(f"Finished building map! Elapsed Time: {elapsed_time} secs")
+    return map_fig
 
 
 if __name__ == "__main__":

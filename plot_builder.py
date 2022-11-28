@@ -16,6 +16,27 @@ import dash_bootstrap_components as dbc
 """
 Auxiliary functions
 """
+null_graph = {
+    "layout": {
+        "xaxis": {
+            "visible": False
+        },
+        "yaxis": {
+            "visible": False
+        },
+        "annotations": [
+            {
+                "text": " <br> <br> Loading...",
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {
+                    "size": 28
+                }
+            }
+        ]
+    }
+}
 
 
 def convert_countrycode(value, input_type, output_type):
@@ -162,6 +183,9 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             sql = sql + " AND " + sql_term
         sql = sql + " " + sql_end
         df = db.run_query(sql, conn)
+        # print()
+        # print(df.to_string(max_rows=2))
+        # print()
         df.fillna(value="Unknown", axis="index", inplace=True)
 
 
@@ -197,8 +221,25 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                         "Z": "Zoo", }
         df.replace({"Purpose": purpose_dict}, inplace=True)
 
-    # Create dict of appendix status
 
+    # Aggregate
+    df = df.groupby([input_attribute])["count(" + input_attribute + ")"].sum().sort_values(ascending=False)
+    print(df.to_string)
+    top_result = df.idxmax()
+    df = df.to_frame()
+    df.reset_index(inplace=True)
+    misc = df.loc[5:]
+    misc_list = misc[input_attribute].tolist()
+    misc_list = ", ".join(misc_list)
+    misc_sum = misc["count(" + input_attribute + ")"].sum()
+    df.drop(df.index[5:], inplace=True)
+    df.loc[len(df.index)] = [misc_list, misc_sum]
+    print(df.to_string)
+
+
+
+
+    fig = go.Figure(layout=dict(template='plotly'))
     fig = px.line(
         df,
         y="count(" + input_attribute + ")",
@@ -218,11 +259,18 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             x=0.5,
             itemclick=False,
             itemdoubleclick=False,
-        )
-    )
-    top_result = df[input_attribute].mode().tolist()
-    top_result = [input_attribute.capitalize() for input_attribute in top_result]
-    top_result = ", ".join(top_result)
+        ))
+
+    # Aggregate Data and Calculate total
+    top_result = "Error"
+
+
+
+
+
+
+    # total_top = total.nlargest(n=3, columns="Count", keep="First")
+
     return fig, df["count(" + input_attribute + ")"].sum(), top_result
 
 
@@ -385,8 +433,6 @@ Update the map figure with traces
 
 def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn, map_shipments_lower_tol,
                      map_fig):
-    import time
-    start = time.time()
     # Setup dataframe and find connections to trace.
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
@@ -545,9 +591,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
             )
 
         )),
-    end = time.time()
-    elapsed_time = end - start
-    print(f"Timer: {elapsed_time}")
+
     return map_fig
 
 
@@ -567,14 +611,12 @@ def history_listing_generator(input_taxon, conn):
     year_column = df.pop("Year")
     df.insert(0, "ID2", df.index)
     df.insert(1, "Year", year_column)
-    print(df.to_string())
 
     table_header = [
         html.Thead(html.Tr([html.Th("Year"), html.Th("Appx."), html.Th("Change"), html.Th("")]))
     ]
     table_rows = []
 
-    ind: object
     for ind in df.index:
         if df['Tooltip'][ind] is None:
             table_rows.append(
