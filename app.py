@@ -423,12 +423,7 @@ Term Type per Trade Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot1(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    print("Building 'Purpose Plot' ...")
-    start = time.time()
     plot = pltbld.build_line_diagram("Term", temporal_input, filter_terms, filter_purpose, filter_source, conn)
-    end = time.time()
-    elapsed_time = round(end - start, 0)
-    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
     return plot
 
 
@@ -448,12 +443,7 @@ Source Plot Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot2a(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    print("Building 'Purpose Plot' ...")
-    start = time.time()
     plot = pltbld.build_line_diagram("Source", temporal_input, filter_terms, filter_purpose, filter_source, conn)
-    end = time.time()
-    elapsed_time = round(end - start, 0)
-    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
     return plot
 
 
@@ -473,12 +463,7 @@ Purpose Plot Callback
     Input("filter_source", "value"), prevent_initial_call=True
 )
 def build_plot2b(activation, temporal_input, filter_terms, filter_purpose, filter_source):
-    print("Building 'Purpose Plot' ...")
-    start = time.time()
     plot = pltbld.build_line_diagram("Purpose", temporal_input, filter_terms, filter_purpose, filter_source, conn)
-    end = time.time()
-    elapsed_time = round(end - start, 0)
-    print(f"Finished building 'Purpose Plot'! Elapsed Time: {elapsed_time} secs")
     return plot
 
 

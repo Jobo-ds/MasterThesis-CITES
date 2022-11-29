@@ -183,10 +183,8 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             sql = sql + " AND " + sql_term
         sql = sql + " " + sql_end
         df = db.run_query(sql, conn)
-        # print()
-        # print(df.to_string(max_rows=2))
-        # print()
         df.fillna(value="Unknown", axis="index", inplace=True)
+        df.rename(columns={"count(" + input_attribute + ")": "Count"}, inplace=True)
 
 
     except sqlite3.Error as err:
@@ -221,28 +219,46 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                         "Z": "Zoo", }
         df.replace({"Purpose": purpose_dict}, inplace=True)
 
+    if input_attribute == "Source":
+        print("Original DF:")
+        print(df.to_string(max_rows=10))
 
     # Aggregate
-    df = df.groupby([input_attribute])["count(" + input_attribute + ")"].sum().sort_values(ascending=False)
-    print(df.to_string)
-    top_result = df.idxmax()
-    df = df.to_frame()
-    df.reset_index(inplace=True)
-    misc = df.loc[5:]
+    df_misc = df.copy()
+    df_misc = df_misc.groupby([input_attribute])["Count"].sum().sort_values(ascending=False)
+    top_result = df_misc.idxmax()
+    df_misc = df_misc.to_frame()
+    df_misc.reset_index(inplace=True)
+    misc = df_misc.loc[5:]
     misc_list = misc[input_attribute].tolist()
-    misc_list = ", ".join(misc_list)
-    misc_sum = misc["count(" + input_attribute + ")"].sum()
-    df.drop(df.index[5:], inplace=True)
-    df.loc[len(df.index)] = [misc_list, misc_sum]
-    print(df.to_string)
 
+    df_misc_rows = df[(df[input_attribute].isin(misc_list))].reset_index()
+    print("Checkpoints Alpha:")
+    print(df_misc_rows.to_string(max_rows=10))
+    print("Checkpoint Passed")
+    df_misc_rows = df_misc_rows.groupby(["Year"]).agg({
+        'Source': lambda x: ', '.join(x),
+        'Count': 'sum'}).reset_index()
 
+    # df_misc_rows = df_misc_rows.groupby(["Source", 'Year'])['Source'].apply(', '.join).reset_index()
 
+    if input_attribute == "Source":
+        print("")
+        print("Misc List:")
+        print(misc_list)
+        print("")
+        print("Top 5 DF:")
+        print(df_misc_rows.to_string(max_rows=10))
+
+    # misc_sum = misc["Count"].sum()
+    # df.drop(df.index[5:], inplace=True)
+    # df.loc[len(df.index)] = [misc_list, misc_sum]
+    # print(df.to_string)
 
     fig = go.Figure(layout=dict(template='plotly'))
     fig = px.line(
         df,
-        y="count(" + input_attribute + ")",
+        y="Count",
         x="Year",
         color=input_attribute,
         markers=True
@@ -261,17 +277,7 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             itemdoubleclick=False,
         ))
 
-    # Aggregate Data and Calculate total
-    top_result = "Error"
-
-
-
-
-
-
-    # total_top = total.nlargest(n=3, columns="Count", keep="First")
-
-    return fig, df["count(" + input_attribute + ")"].sum(), top_result
+    return fig, df["Count"].sum(), top_result
 
 
 """
