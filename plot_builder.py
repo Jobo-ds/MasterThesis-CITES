@@ -99,7 +99,7 @@ def create_filters_dict(filter_list, outputfilter):
                         {"label": "Scientific", "value": "S"},
                         {"label": "Commercial", "value": "T"},
                         {"label": "Zoo", "value": "Z"},
-                        {"label": "Unknown", "value": "Unknown"}
+                        {"label": "Missing Data", "value": "Missing Data"}
                         ]
         valid_dict_list = []
         for dicts in purpose_list:
@@ -117,7 +117,7 @@ def create_filters_dict(filter_list, outputfilter):
                        {"label": "Taken from wild", "value": "W"},
                        {"label": "Taken from marine env.", "value": "X"},
                        {"label": "Assisted production", "value": "Y"},
-                       {"label": "Unknown", "value": "Unknown"}
+                       {"label": "Missing Data", "value": "Missing Data"}
                        ]
         valid_dict_list = []
         for dicts in source_list:
@@ -183,7 +183,14 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             sql = sql + " AND " + sql_term
         sql = sql + " " + sql_end
         df = db.run_query(sql, conn)
-        df.fillna(value="Unknown", axis="index", inplace=True)
+        df["count(" + input_attribute + ")"] = df["count(" + input_attribute + ")"].astype(int)
+
+        if input_attribute == "Source":
+            df.fillna(value="Missing Data", axis="index", inplace=True)
+        if input_attribute == "Purpose":
+            df.fillna(value="Missing Data", axis="index", inplace=True)
+        if input_attribute == "Term":
+            df.fillna(value="Missing Data", axis="index", inplace=True)
         df.rename(columns={"count(" + input_attribute + ")": "Count"}, inplace=True)
 
 
@@ -219,41 +226,17 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                         "Z": "Zoo", }
         df.replace({"Purpose": purpose_dict}, inplace=True)
 
-    if input_attribute == "Source":
-        print("Original DF:")
-        print(df.to_string(max_rows=10))
-
     # Aggregate
     df_misc = df.copy()
     df_misc = df_misc.groupby([input_attribute])["Count"].sum().sort_values(ascending=False)
     top_result = df_misc.idxmax()
     df_misc = df_misc.to_frame()
     df_misc.reset_index(inplace=True)
-    misc = df_misc.loc[5:]
-    misc_list = misc[input_attribute].tolist()
+    df_misc = df_misc.loc[5:]
+    misc_list = df_misc[input_attribute].tolist()
+    misc_string = "Others (" + ", ".join(misc_list) + ")"
 
-    df_misc_rows = df[(df[input_attribute].isin(misc_list))].reset_index()
-    print("Checkpoints Alpha:")
-    print(df_misc_rows.to_string(max_rows=10))
-    print("Checkpoint Passed")
-    df_misc_rows = df_misc_rows.groupby(["Year"]).agg({
-        'Source': lambda x: ', '.join(x),
-        'Count': 'sum'}).reset_index()
-
-    # df_misc_rows = df_misc_rows.groupby(["Source", 'Year'])['Source'].apply(', '.join).reset_index()
-
-    if input_attribute == "Source":
-        print("")
-        print("Misc List:")
-        print(misc_list)
-        print("")
-        print("Top 5 DF:")
-        print(df_misc_rows.to_string(max_rows=10))
-
-    # misc_sum = misc["Count"].sum()
-    # df.drop(df.index[5:], inplace=True)
-    # df.loc[len(df.index)] = [misc_list, misc_sum]
-    # print(df.to_string)
+    df.replace(to_replace=misc_list, value=misc_string, inplace=True)
 
     fig = go.Figure(layout=dict(template='plotly'))
     fig = px.line(
@@ -276,8 +259,20 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             itemclick=False,
             itemdoubleclick=False,
         ))
+    fig.update_yaxes(
+        zeroline=False,
+        tick0=0
+    )
+    fig.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        dtick=1,
+        tickangle=45,
+        tickfont=dict(family='Rockwell', size=14)
+    )
+    fig.update_traces(line=dict(width=2))
 
-    return fig, df["Count"].sum(), top_result
+    return fig, df["Count"].sum()
 
 
 """

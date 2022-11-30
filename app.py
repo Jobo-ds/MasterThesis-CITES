@@ -18,6 +18,7 @@ Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
 dev = True
+dev_year = 2022
 
 # db.build_species_plus_table("cites")
 
@@ -70,10 +71,38 @@ header = html.Div(
     ]
 )
 
+"""
+Badges in Header
+"""
+
+badges = dbc.ButtonGroup(
+    [
+        dbc.Button(
+            [
+                "Total Shipments ",
+                dbc.Badge("...", id="total_shipments", color="light", text_color="primary", className="ms-1"),
+            ],
+            color="primary", class_name="custom_Button",
+        ),
+        dbc.Button(
+            [
+                "Family ",
+                dbc.Badge("...", id="species_family", color="light", text_color="primary", className="ms-1"),
+            ],
+            color="primary", class_name="custom_Button",
+        ),
+        dbc.Button(
+            [
+                "Kingdom ",
+                dbc.Badge("...", id="species_kingdom", color="light", text_color="primary", className="ms-1"),
+            ],
+            color="primary", class_name="custom_Button",
+        ),
+    ], class_name="custom_ButtonGroup")
+
 header_info = dbc.Row([
     dbc.Col([
-        html.P("Kingdom: Loading...", id="species_kingdom"),
-        html.P("Family: Loading...", id="species_family"),
+        badges,
     ], md=5),
     dbc.Col([
         html.P("English Common Names: XXXXXX, YYYYYYY, ZZZZZZZ"),
@@ -89,15 +118,6 @@ tab_terms_trade = dbc.Card(
                             parent_className="loading_wrapper")
             ])
         ]),
-    ],
-    className="custom_card"
-)
-
-tab_terms_quantity = dbc.Card(
-    [
-        dbc.CardBody([
-            html.P("Placeholder", style={"text-align": "center"}),
-        ])
     ],
     className="custom_card"
 )
@@ -151,7 +171,7 @@ temporal_control = dbc.Card(
         dbc.CardHeader("Temporal Control & Data"),
         dbc.CardBody(
             [
-                dbc.Row(html.P("Year Range", className="H6P", style={"margin-top": "0.5rem"}),),
+                dbc.Row(html.P("Year Range", className="H6P", style={"margin-top": "0.5rem"}), ),
                 dbc.Row(
                     [
                         dbc.Col(
@@ -236,42 +256,6 @@ filter_purpose = dbc.Card(
 )
 
 """
-Badges in Header
-"""
-
-total_badge = dbc.Button(
-    [
-        "Total Shipments",
-        dbc.Badge("...", id="total_shipments", color="light", text_color="primary", className="ms-1"),
-    ],
-    color="primary", class_name="custom_Button",
-)
-
-term_badge = dbc.Button(
-    [
-        "Top Term",
-        dbc.Badge("...", id="top_term", color="light", text_color="primary", className="ms-1"),
-    ],
-    color="primary", class_name="custom_Button",
-)
-
-purpose_badge = dbc.Button(
-    [
-        "Top Purpose",
-        dbc.Badge("...", id="top_purpose", color="light", text_color="primary", className="ms-1"),
-    ],
-    color="primary", class_name="custom_Button",
-)
-
-source_badge = dbc.Button(
-    [
-        "Top Source",
-        dbc.Badge("...", id="top_source", color="light", text_color="primary", className="ms-1"),
-    ],
-    color="primary", class_name="custom_Button",
-)
-
-"""
 DASH Layout
 """
 
@@ -289,11 +273,6 @@ app.layout = dbc.Container(
             style={"background": "#e1e1e1", "height": "80px", "border-bottom": "1px solid rgba(0, 0, 0, 0.175)",
                    "padding-bottom": "5px"},
         ),
-        dbc.Row(
-            [
-                dbc.ButtonGroup([
-                    total_badge, term_badge, purpose_badge, source_badge
-                ], class_name="custom_ButtonGroup")]),
         # Data
         dbc.Row([dbc.Col(html.Br(), md=7), dbc.Col(html.Br(), md=5)]),
         dbc.Row(
@@ -372,7 +351,7 @@ Temporal Callbacks
 )
 def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_minus):
     if dev:
-        return 1999
+        return dev_year
     if ctx.triggered_id == "temporal_input":
         return int(temporal_input)
     elif ctx.triggered_id == "temporal_plus":
@@ -415,7 +394,6 @@ Term Type per Trade Callback
 @app.callback(
     Output("plot_1_graph", "figure"),
     Output("total_shipments", "children"),
-    Output("top_term", "children"),
     Input("search_hidden_div", "children"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
@@ -435,7 +413,6 @@ Source Plot Callback
 @app.callback(
     Output("plot_2a_graph", "figure"),
     Output("trashcan_1", "children"),
-    Output("top_source", "children"),
     Input("search_hidden_div", "children"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
@@ -455,7 +432,6 @@ Purpose Plot Callback
 @app.callback(
     Output("plot_purpose", "figure"),
     Output("trashcan_2", "children"),
-    Output("top_purpose", "children"),
     Input("search_hidden_div", "children"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
@@ -488,8 +464,8 @@ def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purp
 
     map_fig = pltbld.build_empty_map_graph()
     map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    #map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
-     #                              map_shipments_lower_tol, map_fig)
+    # map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
+    #                                  map_shipments_lower_tol, map_fig)
     end = time.time()
     elapsed_time = round(end - start, 0)
     print(f"Finished building map! Elapsed Time: {elapsed_time} secs")
