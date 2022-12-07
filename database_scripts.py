@@ -90,19 +90,21 @@ Create a temporary table in the sqlite database with Species Data
 def build_main_df(input_taxon, conn, ctxtriggered_id):
     if ctxtriggered_id == "input_taxon":
         try:
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Missing Data') AS Purpose, ifnull(Source, 'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(
+                input_taxon)
+            conn.execute(sql)
+            print("Temporary taxon table created.")
+        except sqlite3.Error as err:
+            print(f"The error '{err}' occurred while 'creating temporary taxon table' in build_main_df")
+    else:
+        try:
             sql = "DELETE FROM temp.taxon"
             conn.execute(sql)
             sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
             conn.execute(sql)
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
-    else:
-        try:
-            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Unknown') AS Purpose, ifnull(Source, 'Unknown') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
-            conn.execute(sql)
-            print("Temporary taxon table created.")
-        except sqlite3.Error as err:
-            print(f"The error '{err}' occurred while 'creating temporary taxon table' in build_main_df")
+
 
 """
 Get all uniques in temporary table attribute
@@ -336,7 +338,7 @@ def build_species_plus_table(database):
     df = pd.read_csv(speciesplus_csv, dtype=dtypes_dict)
     # Drop Cols
     drop_cols = ["Id", "Family", "Phylum", "Class", "Order", "Genus", "Species", "Subspecies",
-                 "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes",]
+                 "Author", "Rank", "# Full note", "All_DistributionFullNames", "All_DistributionISOCodes", ]
     df.drop(labels=drop_cols, axis="columns", inplace=True)
     df.rename(columns={"NativeDistributionFullNames": "Native_Distribution"}, inplace=True)
     conn = connect_sqlite3(database)
@@ -362,6 +364,7 @@ def build_species_plus_table(database):
         print(f"The error '{err}' occurred while importing species + database")
     print("Species+ Database creation complete")
 
+
 def build_history_table(database):
     history_csv = "CITES/History_of_CITES_Listings.csv"
     # Optimize Pandas Import
@@ -372,8 +375,10 @@ def build_history_table(database):
     dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
     df = pd.read_csv(history_csv, dtype=dtypes_dict)
     # Drop Cols
-    drop_cols = ["TaxonId", "Phylum", "Class", "Order", "Family" , "Genus", "Species", "Subspecies", "FullAnnotationEnglish", "#Annotation", "Kingdom",
-                 "AuthorYear", "PartyIsoCode", "PartyFullName", "#AnnotationSymbol", "AnnotationSpanish", "AnnotationFrench", "NomenclatureNote", "RankName"]
+    drop_cols = ["TaxonId", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Subspecies",
+                 "FullAnnotationEnglish", "#Annotation", "Kingdom",
+                 "AuthorYear", "PartyIsoCode", "PartyFullName", "#AnnotationSymbol", "AnnotationSpanish",
+                 "AnnotationFrench", "NomenclatureNote", "RankName"]
     df.drop(labels=drop_cols, axis="columns", inplace=True)
     conn = connect_sqlite3(database)
     table = "history_listings"

@@ -17,7 +17,7 @@ import numpy as np
 Connect to SQLite3 database
 """
 conn = db.connect_sqlite3("cites")
-dev = True
+dev = False
 dev_year = 2022
 
 # db.build_species_plus_table("cites")
@@ -40,7 +40,7 @@ null_graph = {
         },
         "annotations": [
             {
-                "text": " <br> <br> Loading...",
+                "text": " <br> <br> Please Choose Species...",
                 "xref": "paper",
                 "yref": "paper",
                 "showarrow": False,
@@ -57,7 +57,7 @@ Layout Components
 """
 header = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), "Agapornis roseicollis", id="input_taxon"),
+        dcc.Dropdown(db.build_dropdown_species(), id="input_taxon"),
         # Ammotragus lervia (Distributions and History Listings)
         # Good examples: Bos sauveli
         # Tridacna gigas (Has almost all distributions)
@@ -79,7 +79,7 @@ badges = dbc.ButtonGroup(
     [
         dbc.Button(
             [
-                "Total Shipments ",
+                "Filtered Shipments ",
                 dbc.Badge("...", id="total_shipments", color="light", text_color="primary", className="ms-1"),
             ],
             color="primary", class_name="custom_Button",
@@ -100,21 +100,13 @@ badges = dbc.ButtonGroup(
         ),
     ], class_name="custom_ButtonGroup")
 
-header_info = dbc.Row([
-    dbc.Col([
-        badges,
-    ], md=5),
-    dbc.Col([
-        html.P("English Common Names: XXXXXX, YYYYYYY, ZZZZZZZ"),
-    ], md=5),
-], align="center",
-)
+header_info = dbc.Col([badges, ], md=7)
 
 tab_terms_trade = dbc.Card(
     [
         dbc.CardBody([
             dbc.CardBody([
-                dcc.Loading(children=dcc.Graph(id="plot_1_graph", figure=null_graph), type="default", color="white",
+                dcc.Loading(children=dcc.Graph(id="plot_1_graph", figure=null_graph), type="default", color="black",
                             parent_className="loading_wrapper")
             ])
         ]),
@@ -132,7 +124,7 @@ tab_source = dbc.Card(
     [
         dbc.CardBody([
             dbc.CardBody([
-                dcc.Loading(children=dcc.Graph(id="plot_2a_graph", figure=null_graph), type="default", color="white",
+                dcc.Loading(children=dcc.Graph(id="plot_2a_graph", figure=null_graph), type="default", color="black",
                             parent_className="loading_wrapper")
             ])
         ]),
@@ -143,7 +135,7 @@ tab_source = dbc.Card(
 tab_purpose = dbc.Card(
     [
         dbc.CardBody([
-            dcc.Loading(children=dcc.Graph(id="plot_purpose", figure=null_graph), type="default", color="white",
+            dcc.Loading(children=dcc.Graph(id="plot_purpose", figure=null_graph), type="default", color="black",
                         parent_className="loading_wrapper")
         ])
     ],
@@ -159,7 +151,7 @@ plot_2 = dbc.Tabs(
 
 spatial_map = html.Div(
     [
-        dcc.Loading(children=dcc.Graph(id="spatial_map", figure=null_graph), type="default", color="white",
+        dcc.Loading(children=dcc.Graph(id="spatial_map", figure=null_graph), type="default", color="black",
                     parent_className="loading_wrapper")
     ]
     , style={"margin": "auto auto"})
@@ -266,7 +258,7 @@ app.layout = dbc.Container(
             [
                 dbc.Col(html.P(""), md=1),
                 dbc.Col(header, md=3),
-                dbc.Col(header_info, md=7),
+                header_info,
                 dbc.Col(html.P(""), md=1),
             ],
             align="center",
@@ -324,7 +316,7 @@ Search Callback
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Output("history_listing_table", "children"),
-    Input("input_taxon", "value"),
+    Input("input_taxon", "value"), prevent_initial_call=True
 )
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
@@ -334,7 +326,7 @@ def create_taxon_temp_table(input_taxon):
     family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
-    return "search_active", temporal_min, kingdom, "Family: " + family, history_listing_table
+    return "search_active", temporal_min, kingdom, family, history_listing_table
 
 
 """
@@ -359,7 +351,7 @@ def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_min
     elif ctx.triggered_id == "temporal_minus":
         return int(temporal_input) - 1
     else:
-        return temporal_start
+        return temporal_start + 10
 
 
 """
@@ -464,8 +456,8 @@ def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purp
 
     map_fig = pltbld.build_empty_map_graph()
     map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    # map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
-    #                                  map_shipments_lower_tol, map_fig)
+    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
+                                     map_shipments_lower_tol, map_fig)
     end = time.time()
     elapsed_time = round(end - start, 0)
     print(f"Finished building map! Elapsed Time: {elapsed_time} secs")

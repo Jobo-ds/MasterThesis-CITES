@@ -13,6 +13,34 @@ import random
 from dash import Dash, html, dcc, ctx, dash_table
 import dash_bootstrap_components as dbc
 
+color_dict = {
+    #Source
+    "Artificially propagated plants": "#fff",
+    "Bred in captivity": "#367BB9",
+    "Bred in captivity (Appx I)": "#592C8F",
+    "Born in captivity": "#2A3199",
+    "Confiscated specimens": "#C8272D",
+    "Pre-Convention specimens": "#E98262",
+    "Ranched specimens": "#5CAA46",
+    "Source unknown": "#768181",
+    "Taken from wild": "#8EB03E",
+    "Taken from marine env.": "#94D6E9",
+    # Purpose
+    "Assisted production": "#831C16",
+    "Breeding": "#2A341A",
+    "Educational": "#fff",
+    "Botanical garden": "#8EB03E",
+    "Hunting Trophy": "#C0BF83",
+    "Law enforcement": "#2A3199",
+    "Medical": "#862991",
+    "(Re)introduction": "#5CAA46",
+    "Personal": "#94D6E9",
+    "Circus/Exhibition": "#F6CB50",
+    "Scientific": "#D987B9",
+    "Commercial": "#367BB9",
+    "Zoo": "#768181", }
+
+
 """
 Auxiliary functions
 """
@@ -244,6 +272,7 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         y="Count",
         x="Year",
         color=input_attribute,
+        color_discrete_map=color_dict,
         markers=True
     )
     fig.update_layout(
@@ -268,9 +297,9 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         zeroline=False,
         dtick=1,
         tickangle=45,
-        tickfont=dict(family='Rockwell', size=14)
+        tickfont=dict(size=14)
     )
-    fig.update_traces(line=dict(width=2))
+    fig.update_traces(line=dict(width=3))
 
     return fig, df["Count"].sum()
 
