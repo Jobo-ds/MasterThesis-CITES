@@ -295,7 +295,6 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
     fig.update_xaxes(
         showgrid=False,
         zeroline=False,
-        dtick=1,
         tickangle=45,
         tickfont=dict(size=14)
     )

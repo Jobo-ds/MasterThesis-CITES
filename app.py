@@ -172,7 +172,10 @@ temporal_control = dbc.Card(
                                 html.P("1979", id="temporal_start", style={"margin-top": "5px"}),
                             ], md=3,
                         ),
-                        dbc.Col(html.P("to", style={"margin-top": "5px"}), md=2),
+                        dbc.Col([
+                                html.P("to", style={"margin-top": "5px"}),
+                                html.Div(id="temporal_max", style={"display": "none"})
+                            ], md=2,),
                         dbc.Col(
                             [
                                 dbc.InputGroup(
@@ -313,6 +316,7 @@ Search Callback
 @app.callback(
     Output("search_hidden_div", "children"),
     Output("temporal_start", "children"),
+    Output("temporal_max", "children"),
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Output("history_listing_table", "children"),
@@ -320,13 +324,17 @@ Search Callback
 )
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
-    sql = "SELECT MIN(Year), Family FROM temp.Taxon"
+    sql = "SELECT MIN(Year), MAX(Year), Family FROM temp.Taxon"
     basic_data = db.run_query(sql, conn)
+    print(basic_data)
     temporal_min = int(basic_data['MIN(Year)'].values[0])
+    temporal_max = int(basic_data['MAX(Year)'].values[0])
+    print(temporal_min)
+    print(temporal_max)
     family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
-    return "search_active", temporal_min, kingdom, family, history_listing_table
+    return "search_active", temporal_min, temporal_max, kingdom, family, history_listing_table
 
 
 """
@@ -336,12 +344,13 @@ Temporal Callbacks
 
 @app.callback(
     Output("temporal_input", "value"),
+    Input("temporal_max", "children"),
     Input("temporal_input", "value"),
     Input("temporal_start", "children"),
     Input("temporal_plus", "n_clicks"),
     Input("temporal_minus", "n_clicks"), prevent_initial_call=True
 )
-def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_minus):
+def temporal_buttons(temporal_max, temporal_input, temporal_start, temporal_plus, temporal_minus):
     if dev:
         return dev_year
     if ctx.triggered_id == "temporal_input":
@@ -351,7 +360,7 @@ def temporal_buttons(temporal_input, temporal_start, temporal_plus, temporal_min
     elif ctx.triggered_id == "temporal_minus":
         return int(temporal_input) - 1
     else:
-        return temporal_start + 10
+        return temporal_max # temporal_start + 10
 
 
 """

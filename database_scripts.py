@@ -74,10 +74,13 @@ Populate Dropdown Menu (Species)
 def build_dropdown_species():
     try:
         conn = connect_sqlite3("cites")
-        df = run_query("SELECT Taxon from distinct_table_amount", conn)
-        taxon_list = df["Taxon"].values.tolist()
+        df = run_query("SELECT Taxon, amount FROM distinct_table_amount", conn)
+        df = df.rename(columns={"Taxon": "value", "amount": "label"})
+        df["label"] = df['value'].astype(str) + " (Entries: " + df["label"].astype(str) + ")"
+        df.set_index("value")
+        taxon_dict = df.to_dict("records")
         conn.close()
-        return taxon_list
+        return taxon_dict
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred during build_dropdown_species")
 
