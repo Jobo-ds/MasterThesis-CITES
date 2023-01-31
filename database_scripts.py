@@ -72,6 +72,7 @@ Populate Dropdown Menu (Species)
 
 
 def build_dropdown_species():
+    print("Building dropdown list of species ...")
     try:
         conn = connect_sqlite3("cites")
         df = run_query("SELECT Taxon, amount FROM distinct_table_amount", conn)
@@ -99,14 +100,14 @@ def build_main_df(input_taxon, conn, ctxtriggered_id):
             print("Temporary taxon table created.")
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while 'creating temporary taxon table' in build_main_df")
-    else:
-        try:
-            sql = "DELETE FROM temp.taxon"
-            conn.execute(sql)
-            sql = "INSERT INTO temp.taxon SELECT * FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
-            conn.execute(sql)
-        except sqlite3.Error as err:
-            print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
+            try:
+                sql = "DELETE FROM temp.taxon"
+                conn.execute(sql)
+                sql = "INSERT INTO temp.taxon SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Missing Data') AS Purpose, ifnull(Source, 'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+                conn.execute(sql)
+            except sqlite3.Error as err:
+                print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
+
 
 
 """

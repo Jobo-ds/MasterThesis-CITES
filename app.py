@@ -8,6 +8,8 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
 import time
+from dash.exceptions import PreventUpdate
+
 
 import numpy as np
 
@@ -55,9 +57,12 @@ null_graph = {
 """
 Layout Components
 """
+dropdown_dict = db.build_dropdown_species()
+
 header = html.Div(
     [
-        dcc.Dropdown(db.build_dropdown_species(), id="input_taxon"),
+
+        dcc.Dropdown(id="input_taxon"),
         # Ammotragus lervia (Distributions and History Listings)
         # Good examples: Bos sauveli
         # Tridacna gigas (Has almost all distributions)
@@ -188,7 +193,7 @@ temporal_control = dbc.Card(
                                                   maxlength=4,
                                                   minlength=4,
                                                   min=1975, max=2022,
-                                                  style={"width": "100px", "margin-left": "-5px",
+                                                  style={"width": "80px", "margin-left": "-5px",
                                                          "border": "1px solid #95a5a6"
                                                          }, debounce=True),
                                         dbc.Button("+", outline=True, color="secondary", className="me-1",
@@ -311,7 +316,14 @@ app.layout = dbc.Container(
 """
 Search Callback
 """
-
+@app.callback(
+    Output("input_taxon", "options"),
+    Input("input_taxon", "search_value")
+)
+def update_options(search_value):
+    if not search_value:
+        raise PreventUpdate
+    return [o for o in dropdown_dict if search_value in o["label"]]
 
 @app.callback(
     Output("search_hidden_div", "children"),
@@ -329,8 +341,6 @@ def create_taxon_temp_table(input_taxon):
     print(basic_data)
     temporal_min = int(basic_data['MIN(Year)'].values[0])
     temporal_max = int(basic_data['MAX(Year)'].values[0])
-    print(temporal_min)
-    print(temporal_max)
     family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
@@ -475,3 +485,6 @@ def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purp
 
 if __name__ == "__main__":
     app.run_server(debug=True)
+    #app.run_server(host="0.0.0.0", port="8050")
+
+

@@ -290,7 +290,7 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         ))
     fig.update_yaxes(
         zeroline=False,
-        tick0=0
+        tick0=0,
     )
     fig.update_xaxes(
         showgrid=False,
@@ -605,10 +605,10 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                 symbol="circle",
                 opacity=shipment_traces["opacity"],
                 cauto=False,
-                color="white",
+                color="#368B33",
                 line=dict(
                     width=2,
-                    color="lightgray"
+                    color="#2e772c"
                 ),
             ),
             hoverlabel=dict(
