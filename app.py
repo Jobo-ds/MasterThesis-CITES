@@ -58,6 +58,8 @@ null_graph = {
 Layout Components
 """
 dropdown_dict = db.build_dropdown_species()
+# Store shipments for fast filtering
+
 
 header = html.Div(
     [
@@ -71,7 +73,9 @@ header = html.Div(
         # Agapornis roseicollis
         html.Div(id="search_hidden_div", style={"display": "none"}),
         html.Div(id="trashcan_1", style={"display": "none"}),
-        html.Div(id="trashcan_2", style={"display": "none"})
+        html.Div(id="trashcan_2", style={"display": "none"}),
+        dcc.Store(id="shipment_Store"),
+        dcc.Store(id="map_fig_no_traces_Store")
 
     ]
 )
@@ -332,19 +336,19 @@ def update_options(search_value):
     Output("species_kingdom", "children"),
     Output("species_family", "children"),
     Output("history_listing_table", "children"),
+    Output("map_shipments_lower_tol", "value"),
     Input("input_taxon", "value"), prevent_initial_call=True
 )
 def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
     sql = "SELECT MIN(Year), MAX(Year), Family FROM temp.Taxon"
     basic_data = db.run_query(sql, conn)
-    print(basic_data)
     temporal_min = int(basic_data['MIN(Year)'].values[0])
     temporal_max = int(basic_data['MAX(Year)'].values[0])
     family = str(basic_data['Family'].values[0])
     kingdom = "MY KINGDOM"
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
-    return "search_active", temporal_min, temporal_max, kingdom, family, history_listing_table
+    return "search_active", temporal_min, temporal_max, kingdom, family, history_listing_table, 0
 
 
 """
@@ -461,26 +465,35 @@ Spatial Callback
 
 @app.callback(
     Output("spatial_map", "figure"),
+    Output("shipment_Store", "data"),
     Input("search_hidden_div", "children"),
     Input("input_taxon", "value"),
     Input("temporal_input", "value"),
     Input("filter_terms", "value"),
     Input("filter_purpose", "value"),
     Input("filter_source", "value"),
-    Input("map_shipments_lower_tol", "value"), prevent_initial_call=True)
+    Input("map_shipments_lower_tol", "value"),
+    Input("shipment_Store", "data"), prevent_initial_call=True)
 def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source,
-              map_shipments_lower_tol):
-    print("Building map ...")
+              map_shipments_lower_tol, shipment_Store):
     start = time.time()
-
-    map_fig = pltbld.build_empty_map_graph()
-    map_fig = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig)
-    map_fig = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
-                                     map_shipments_lower_tol, map_fig)
+    if ctx.triggered_id == "map_shipments_lower_tol":
+        print("Updating map with lower tolerance...")
+        map_fig_no_traces = pltbld.build_empty_map_graph()
+        map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
+        shipment_Store_read = pd.read_json(shipment_Store, orient='split')
+        map_fig = pltbld.map_tolerance_update(map_fig_no_traces, shipment_Store_read, map_shipments_lower_tol)
+        return map_fig, shipment_Store
+    else:
+        print("Building map ...")
+        map_fig_no_traces = pltbld.build_empty_map_graph()
+        map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
+        map_fig, shipment_traces = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
+                                         map_shipments_lower_tol, map_fig_no_traces)
     end = time.time()
     elapsed_time = round(end - start, 0)
-    print(f"Finished building map! Elapsed Time: {elapsed_time} secs")
-    return map_fig
+    print(f"Finished map! Elapsed Process Time: {elapsed_time} secs")
+    return map_fig, shipment_traces.to_json(date_format='iso', orient='split')
 
 
 if __name__ == "__main__":

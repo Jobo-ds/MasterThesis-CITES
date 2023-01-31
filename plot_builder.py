@@ -620,7 +620,54 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
             )
 
         )),
+    return map_fig, shipment_traces
 
+def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
+    shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
+    shipment_traces = shipment_traces.reset_index()
+    # Add traces to map figure
+    for i in range(len(shipment_traces)):
+        exp_lat, exp_lon = shipment_traces["exp_latitude"][i], shipment_traces["exp_longitude"][i]
+        mid_lat, mid_lon = shipment_traces["mid_latitude"][i], shipment_traces["mid_longitude"][i]
+        imp_lat, imp_lon = shipment_traces["imp_latitude"][i], shipment_traces["imp_longitude"][i]
+        map_fig.add_trace(
+            go.Scattergeo(
+                lat=([exp_lat, mid_lat, imp_lat]),
+                lon=([exp_lon, mid_lon, imp_lon]),
+                mode="lines",
+                hoverinfo="skip",
+                line=dict(
+                    width=shipment_traces["width"][i],
+                    color="rgba(54, 139, 51, {})".format(shipment_traces['opacity'][i]))
+            )),
+    # Info Dot
+    map_fig.add_trace(
+        go.Scattergeo(
+            lat=shipment_traces["mid_latitude"],
+            lon=shipment_traces["mid_longitude"],
+            text=shipment_traces["description"],
+            mode="markers",
+            hoverinfo='text',
+            marker=dict(
+                size=12,
+                symbol="circle",
+                opacity=shipment_traces["opacity"],
+                cauto=False,
+                color="#368B33",
+                line=dict(
+                    width=2,
+                    color="#2e772c"
+                ),
+            ),
+            hoverlabel=dict(
+                bgcolor="white",
+                bordercolor="black",
+                font_size=12,
+                font_family="Verdana",
+                align="left",
+            )
+
+        )),
     return map_fig
 
 

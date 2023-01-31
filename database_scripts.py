@@ -72,7 +72,6 @@ Populate Dropdown Menu (Species)
 
 
 def build_dropdown_species():
-    print("Building dropdown list of species ...")
     try:
         conn = connect_sqlite3("cites")
         df = run_query("SELECT Taxon, amount FROM distinct_table_amount", conn)
