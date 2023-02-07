@@ -15,7 +15,7 @@ import dash_bootstrap_components as dbc
 import time
 
 color_dict = {
-    #Source
+    # Source
     "Artificially propagated plants": "#fff",
     "Bred in captivity": "#367BB9",
     "Bred in captivity (Appx I)": "#592C8F",
@@ -40,7 +40,6 @@ color_dict = {
     "Scientific": "#D987B9",
     "Commercial": "#367BB9",
     "Zoo": "#768181", }
-
 
 """
 Auxiliary functions
@@ -255,17 +254,148 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                         "Z": "Zoo", }
         df.replace({"Purpose": purpose_dict}, inplace=True)
 
-    # Aggregate
-    df_misc = df.copy()
-    df_misc = df_misc.groupby([input_attribute])["Count"].sum().sort_values(ascending=False)
-    top_result = df_misc.idxmax()
-    df_misc = df_misc.to_frame()
-    df_misc.reset_index(inplace=True)
-    df_misc = df_misc.loc[5:]
-    misc_list = df_misc[input_attribute].tolist()
-    misc_string = "Others (" + ", ".join(misc_list) + ")"
+    if input_attribute == "Term":
+        term_dict = {"live": "Animalia Products",
+                     "specimens": "Animalia Products",
+                     "bodies": "Animalia Products",
+                     "feet": "Animalia Products",
+                     "cultures": "Animalia Products",
+                     "meat": "Animalia Products",
+                     "claws": "Animalia Products",
+                     "tails": "Animalia Products",
+                     "hair": "Animalia Products",
+                     "ears": "Animalia Products",
+                     "eggs": "Animalia Products",
+                     "fins": "Animalia Products",
+                     "fingerlings": "Animalia Products",
+                     "genitalia": "Animalia Products",
+                     "calipee": "Animalia Products",
+                     "gall": "Animalia Products",
+                     "gall bladders": "Animalia Products",
+                     "heads": "Animalia Products",
+                     "musk": "Animalia Products",
+                     "swim bladders": "Animalia Products",
+                     "frog legs": "Animalia Products",
+                     "trunk": "Animalia Products",
+                     "pupae": "Animalia Products",
+                     "eggshell": "Animalia Products",
+                     "sawfish rostrum": "Animalia Products",
+                     "gill plates": "Animalia Products",
+                     "eggs (live)": "Animalia Products",
+                     "timber pieces": "Plantae Products",
+                     "roots": "Plantae Products",
+                     "leaves": "Plantae Products",
+                     "timber": "Plantae Products",
+                     "flowers": "Plantae Products",
+                     "fruit": "Plantae Products",
+                     "wax": "Plantae Products",
+                     "stems": "Plantae Products",
+                     "sawn wood": "Plantae Products",
+                     "chips": "Plantae Products",
+                     "graft rootstocks": "Plantae Products",
+                     "logs": "Plantae Products",
+                     "plywood": "Plantae Products",
+                     "veneer": "Plantae Products",
+                     "bark": "Plantae Products",
+                     "kernel": "Plantae Products",
+                     "transformed wood": "Plantae Products",
+                     "seeds": "Plantae Products",
+                     "oil": "Raw Products",
+                     "dried plants": "Raw Products",
+                     "raw corals": "Raw Products",
+                     "fibres": "Raw Products",
+                     "extract": "Raw Products",
+                     "caviar": "Raw Products",
+                     "coral sand": "Raw Products",
+                     "pearls": "Raw Products",
+                     "pearl": "Raw Products",
+                     "trophies": "Processed Products",
+                     "leather items": "Processed Products",
+                     "shoes": "Processed Products",
+                     "leather products (small)": "Processed Products",
+                     "leather": "Processed Products",
+                     "carvings": "Processed Products",
+                     "wood products": "Processed Products",
+                     "garments": "Processed Products",
+                     "horn products": "Processed Products",
+                     "horn carvings": "Processed Products",
+                     "ivory carvings": "Processed Products",
+                     "soup": "Processed Products",
+                     "timber carvings": "Processed Products",
+                     "cloth": "Processed Products",
+                     "powder": "Processed Products",
+                     "medicine": "Processed Products",
+                     "leather products (large)": "Processed Products",
+                     "flower pots": "Processed Products",
+                     "furniture": "Processed Products",
+                     "hair products": "Processed Products",
+                     "sets of piano keys": "Processed Products",
+                     "quills": "Processed Products",
+                     "spectacle frames": "Processed Products",
+                     "jewellery - ivory ": "Processed Products",
+                     "jewellery": "Processed Products",
+                     "wood product": "Processed Products",
+                     "rug": "Processed Products",
+                     "cosmetics": "Processed Products",
+                     "piano keys": "Processed Products",
+                     "fur products (large)": "Processed Products",
+                     "fur product (small)": "Processed Products",
+                     "skeletons": "Bone",
+                     "skulls": "Bone",
+                     "bone products": "Bone",
+                     "bones": "Bone",
+                     "teeth": "Bone",
+                     "tusks": "Bone",
+                     "bone carvings": "Bone",
+                     "horns": "Bone",
+                     "shells": "Bone",
+                     "bone pieces": "Bone",
+                     "ivory scraps": "Bone",
+                     "horn pieces": "Bone",
+                     "ivory pieces": "Bone",
+                     "horn scraps": "Bone",
+                     "baleen": "Bone",
+                     "skins": "Skin",
+                     "feathers": "Skin",
+                     "carapaces": "Skin",
+                     "scales": "Skin",
+                     "skin scraps": "Skin",
+                     "plates": "Skin",
+                     "skin pieces": "Skin",
+                     "sides": "Skin",
+                     "unspecified": "Others",
+                     "derivatives": "Others",
+                     "venom": "Others",
+                     "scraps": "Others",
+                     }
+        print(df.head(1))
+        print("It's Term time!")
+        df['Category'] = df.loc[:, 'Term']
+        df.replace({"Category": term_dict}, inplace=True)
+        category_list = ["Animalia Products", "Plantae Products", "Raw Products", "Processed Products", "Bone", "Skin", "Others"]
+        for category in category_list:
+            unique_terms = set(df.loc[df['Category'] == category, 'Term'].tolist())
+            unique_string = category + " (" + ", ".join(unique_terms) + ")"
+            df.replace(to_replace=category, value=unique_string, inplace=True)
+        df.drop("Term", "columns", inplace=True)
+        df.rename(columns = {"Category":"Term"}, inplace=True)
+        df = df.groupby(by=['Year', "Term"], as_index=False)['Count'].sum()
+        print(df.head(1))
 
-    df.replace(to_replace=misc_list, value=misc_string, inplace=True)
+
+
+    else:
+        # Aggregate Misc
+        df_misc = df.copy()
+        df_misc = df_misc.groupby([input_attribute])["Count"].sum().sort_values(ascending=False)
+        top_result = df_misc.idxmax()
+        df_misc = df_misc.to_frame()
+        df_misc.reset_index(inplace=True)
+        df_misc = df_misc.loc[5:]
+        misc_list = df_misc[input_attribute].tolist()
+        misc_string = "Others (" + ", ".join(misc_list) + ")"
+
+        df.replace(to_replace=misc_list, value=misc_string, inplace=True)
 
     fig = go.Figure(layout=dict(template='plotly'))
     fig = px.line(
@@ -286,7 +416,7 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
             y=1,
             xanchor="center",
             x=0.5,
-            itemclick=False,
+            itemclick="toggle",
             itemdoubleclick=False,
         ))
     fig.update_yaxes(
@@ -299,7 +429,9 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         tickangle=45,
         tickfont=dict(size=14)
     )
-    fig.update_traces(line=dict(width=3))
+    fig.update_traces(
+        line=dict(width=3),
+        connectgaps=False)
 
     return fig, df["Count"].sum()
 
@@ -390,21 +522,20 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
             return 0.4
 
     def bgcolor_converter(row, col):
-        if row[col] == 0.5: # Uncertain
+        if row[col] == 0.5:  # Uncertain
             return "#fff9e0"
-        if row[col] == 0.2: # Reintroduced
+        if row[col] == 0.2:  # Reintroduced
             return "#f8f5cd"
-        if row[col] == 0.6: # Possible Extinct
+        if row[col] == 0.6:  # Possible Extinct
             return "#ffdbce"
-        if row[col] == 0.7: # Extinct
+        if row[col] == 0.7:  # Extinct
             return "#fbb1ce"
-        if row[col] == 0.1: # Native
+        if row[col] == 0.1:  # Native
             return "#d3f5be"
-        if row[col] == 0.3: # Introduced
+        if row[col] == 0.3:  # Introduced
             return "#f8f5cd"
-        if row[col] == 0.4: # Possibly Introduced
+        if row[col] == 0.4:  # Possibly Introduced
             return "#dbe0f8"
-
 
     def text_generation(row, col):
         if row[col] == "Native_Distribution":
@@ -620,7 +751,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                                      "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
     shipment_traces.drop(["last_shipment"], axis=1)
 
-
     # Look for duplicate midpoints and move them slightly if found.
 
     def move_midpoint(row):
@@ -685,6 +815,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
 
         )),
     return map_fig, shipment_traces
+
 
 def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
     shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
