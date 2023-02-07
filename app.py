@@ -156,7 +156,7 @@ plot_2 = dbc.Tabs(
         dbc.Tab(tab_source, label="Source"),
         dbc.Tab(tab_purpose, label="Purpose"),
     ]
-)
+, style={"margin-bottom":"20px;"})
 
 spatial_map = html.Div(
     [
@@ -222,7 +222,7 @@ map_filters = dbc.Card(
                 html.P("Minimum Amount of Shipments to Draw"),
                 html.Div(dcc.Slider(0, 10, 1, value=0, id="map_shipments_lower_tol"), style={"margin-top": "10px"}),
             ]
-            , className="custom_cardBody_padding"),
+            , className="custom_cardBody_padding", style={"margin-bottom":"20px;"}),
     ]
 )
 
@@ -233,7 +233,7 @@ filter_terms = dbc.Card(
             dcc.Dropdown(
                 multi=True,
                 id="filter_terms",
-                searchable=False, )),
+                searchable=False, ), style={"margin-bottom":"20px;"}),
     ]
 )
 
@@ -314,7 +314,7 @@ app.layout = dbc.Container(
             align="start", justify="center",
         ),
     ],
-    fluid=True, style={'backgroundColor': "#eeeeee"}
+    fluid=True, style={'backgroundColor': "#eeeeee", "margin-bottom":"20px"}
 )
 
 """
@@ -326,6 +326,8 @@ Search Callback
 )
 def update_options(search_value):
     if not search_value:
+        raise PreventUpdate
+    if len(search_value) < 5:
         raise PreventUpdate
     return [o for o in dropdown_dict if search_value in o["label"]]
 
