@@ -39,7 +39,8 @@ color_dict = {
     "Circus/Exhibition": "#F6CB50",
     "Scientific": "#D987B9",
     "Commercial": "#367BB9",
-    "Zoo": "#768181", }
+    "Zoo": "#768181",
+}
 
 """
 Auxiliary functions
@@ -255,11 +256,11 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         df.replace({"Purpose": purpose_dict}, inplace=True)
 
     if input_attribute == "Term":
-        term_dict = {"live": "Animalia Products",
-                     "specimens": "Animalia Products",
+        term_dict = {
+                     "specimens": "Common Products",
                      "bodies": "Animalia Products",
                      "feet": "Animalia Products",
-                     "cultures": "Animalia Products",
+                     "cultures": "Common Products",
                      "meat": "Animalia Products",
                      "claws": "Animalia Products",
                      "tails": "Animalia Products",
@@ -300,15 +301,16 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                      "kernel": "Plantae Products",
                      "transformed wood": "Plantae Products",
                      "seeds": "Plantae Products",
-                     "oil": "Raw Products",
-                     "dried plants": "Raw Products",
-                     "raw corals": "Raw Products",
-                     "fibres": "Raw Products",
-                     "extract": "Raw Products",
-                     "caviar": "Raw Products",
-                     "coral sand": "Raw Products",
-                     "pearls": "Raw Products",
-                     "pearl": "Raw Products",
+                     "oil": "Common Products",
+                     "live": "Common Products",
+                     "dried plants": "Common Products",
+                     "raw corals": "Common Products",
+                     "fibres": "Common Products",
+                     "extract": "Common Products",
+                     "caviar": "Common Products",
+                     "coral sand": "Common Products",
+                     "pearls": "Common Products",
+                     "pearl": "Common Products",
                      "trophies": "Processed Products",
                      "leather items": "Processed Products",
                      "shoes": "Processed Products",
@@ -368,22 +370,16 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                      "venom": "Others",
                      "scraps": "Others",
                      }
-        print(df.head(1))
-        print("It's Term time!")
         df['Category'] = df.loc[:, 'Term']
         df.replace({"Category": term_dict}, inplace=True)
-        category_list = ["Animalia Products", "Plantae Products", "Raw Products", "Processed Products", "Bone", "Skin", "Others"]
+        category_list = ["Animalia Products", "Plantae Products", "Common Products", "Processed Products", "Bone", "Skin", "Others"]
         for category in category_list:
             unique_terms = set(df.loc[df['Category'] == category, 'Term'].tolist())
             unique_string = category + " (" + ", ".join(unique_terms) + ")"
             df.replace(to_replace=category, value=unique_string, inplace=True)
-        df.drop("Term", "columns", inplace=True)
-        df.rename(columns = {"Category":"Term"}, inplace=True)
+        df.drop(columns="Term", inplace=True)
+        df.rename(columns={"Category":"Term"}, inplace=True)
         df = df.groupby(by=['Year', "Term"], as_index=False)['Count'].sum()
-        print(df.head(1))
-
-
-
     else:
         # Aggregate Misc
         df_misc = df.copy()
@@ -446,7 +442,7 @@ def build_empty_map_graph():
     fig_map.update_geos(
         showcoastlines=True, coastlinecolor="#dcdcce",
         showland=True, landcolor="#dfe1d2",
-        showocean=True, oceancolor="#6695b4",
+        showocean=True, oceancolor="#ebeced",
         showcountries=True, countrycolor="#bec2a3",
         projection_type="equirectangular",
         showframe=False,
@@ -455,8 +451,8 @@ def build_empty_map_graph():
         height=500,
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         showlegend=False,
-        paper_bgcolor="#eeeeee",
-        plot_bgcolor="#eeeeee"
+        paper_bgcolor="#ebeced",
+        plot_bgcolor="#ebeced"
     )
     return fig_map
 
@@ -668,9 +664,12 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
-    shipment_traces["width"] = round((shipment_traces["count"] / count_max) * 10, 2)
-    shipment_traces["width"].clip(1, axis=0, inplace=True)
-    shipment_traces = shipment_traces[shipment_traces['width'] != 0.0]
+    count_min = shipment_traces.loc[shipment_traces["count"].idxmin()].values[2]
+    def width_percentage(n, count_max, count_min):
+        return round(((n - count_min)/(count_max - count_min))*10, 2)
+    shipment_traces["width"] = shipment_traces["count"].apply(lambda x: width_percentage(x, count_max, count_min))
+    shipment_traces["width"].clip(lower=1, upper=10, axis=0, inplace=True)
+    #shipment_traces.to_csv("output4.csv")
     shipment_traces["mid_latitude"], shipment_traces["mid_longitude"] = 0.0, 0.0
     if verbose:
         end = time.time()
@@ -783,7 +782,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                 hoverinfo="skip",
                 line=dict(
                     width=shipment_traces["width"][i],
-                    color="rgba(204, 125, 182, {})".format(shipment_traces['opacity'][i]))
+                    color="rgba(102, 149, 180, {})".format(shipment_traces['opacity'][i]))
             )),
     # Info Dot
     map_fig.add_trace(
@@ -798,15 +797,15 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                 symbol="circle",
                 opacity=shipment_traces["opacity"],
                 cauto=False,
-                color="#915A82",
+                color="#4f7995",
                 line=dict(
                     width=2,
-                    color="#cc7db6"
+                    color="#6695b4"
                 ),
             ),
             hoverlabel=dict(
-                bgcolor="#FFD6F4",
-                bordercolor="#915A82",
+                bgcolor="#6695b4",
+                bordercolor="#4f7995",
                 font_color="black",
                 font_size=12,
                 font_family="Verdana",
@@ -833,7 +832,7 @@ def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
                 hoverinfo="skip",
                 line=dict(
                     width=shipment_traces["width"][i],
-                    color="rgba(204, 125, 182, {})".format(shipment_traces['opacity'][i]))
+                    color="rgba(102, 149, 180, {})".format(shipment_traces['opacity'][i]))
             )),
     # Info Dot
     map_fig.add_trace(
@@ -848,15 +847,15 @@ def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
                 symbol="circle",
                 opacity=shipment_traces["opacity"],
                 cauto=False,
-                color="#915A82",
+                color="#4f7995",
                 line=dict(
                     width=2,
-                    color="#cc7db6"
+                    color="#6695b4"
                 ),
             ),
             hoverlabel=dict(
-                bgcolor="#FFD6F4",
-                bordercolor="#915A82",
+                bgcolor="#6695b4",
+                bordercolor="#4f7995",
                 font_color="black",
                 font_size=12,
                 font_family="Verdana",

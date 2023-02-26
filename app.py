@@ -107,6 +107,7 @@ badges = dbc.ButtonGroup(
             ],
             color="primary", class_name="custom_Button",
         ),
+        daq.BooleanSwitch(id='dev_generate_map', on=True),
     ], class_name="custom_ButtonGroup")
 
 header_info = dbc.Col([badges, ], md=7)
@@ -219,7 +220,7 @@ map_filters = dbc.Card(
         dbc.CardHeader("Map Filters"),
         dbc.CardBody(
             [
-                html.P("Minimum Amount of Shipments to Draw"),
+                html.P("Minimum Threshold of Trades in Connections to draw"),
                 html.Div(dcc.Slider(0, 10, 1, value=0, id="map_shipments_lower_tol"), style={"margin-top": "10px"}),
             ]
             , className="custom_cardBody_padding", style={"margin-bottom":"20px;"}),
@@ -475,27 +476,33 @@ Spatial Callback
     Input("filter_purpose", "value"),
     Input("filter_source", "value"),
     Input("map_shipments_lower_tol", "value"),
-    Input("shipment_Store", "data"), prevent_initial_call=True)
+    Input("shipment_Store", "data"),
+    Input("dev_generate_map", "on"), prevent_initial_call=True)
 def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purpose, filter_source,
-              map_shipments_lower_tol, shipment_Store):
-    start = time.time()
-    if ctx.triggered_id == "map_shipments_lower_tol":
-        print("Updating map with lower tolerance...")
-        map_fig_no_traces = pltbld.build_empty_map_graph()
-        map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
-        shipment_Store_read = pd.read_json(shipment_Store, orient='split')
-        map_fig = pltbld.map_tolerance_update(map_fig_no_traces, shipment_Store_read, map_shipments_lower_tol)
-        return map_fig, shipment_Store
+              map_shipments_lower_tol, shipment_Store, dev_generate_map):
+
+    if dev_generate_map:
+        start = time.time()
+        if ctx.triggered_id == "map_shipments_lower_tol":
+            print("Updating map with lower tolerance...")
+            map_fig_no_traces = pltbld.build_empty_map_graph()
+            map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
+            shipment_Store_read = pd.read_json(shipment_Store, orient='split')
+            map_fig = pltbld.map_tolerance_update(map_fig_no_traces, shipment_Store_read, map_shipments_lower_tol)
+            return map_fig, shipment_Store
+        else:
+            print("Building map ...")
+            map_fig_no_traces = pltbld.build_empty_map_graph()
+            map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
+            map_fig, shipment_traces = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
+                                             map_shipments_lower_tol, map_fig_no_traces)
+        end = time.time()
+        elapsed_time = round(end - start, 0)
+        print(f"Finished map! Elapsed Process Time: {elapsed_time} secs")
+        return map_fig, shipment_traces.to_json(date_format='iso', orient='split')
     else:
-        print("Building map ...")
         map_fig_no_traces = pltbld.build_empty_map_graph()
-        map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
-        map_fig, shipment_traces = pltbld.update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn,
-                                         map_shipments_lower_tol, map_fig_no_traces)
-    end = time.time()
-    elapsed_time = round(end - start, 0)
-    print(f"Finished map! Elapsed Process Time: {elapsed_time} secs")
-    return map_fig, shipment_traces.to_json(date_format='iso', orient='split')
+        return map_fig_no_traces, shipment_Store
 
 
 if __name__ == "__main__":
