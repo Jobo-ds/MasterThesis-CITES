@@ -745,9 +745,9 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     shipment_traces["description"] = "<b>Exporter</b>: " + shipment_traces["Exporter_full"] + "<br>" + \
                                      "<b>Importer</b>: " + shipment_traces["Importer_full"] + "<br>" + \
                                      "——————————" + "<br>" \
-                                                    "<b># Shipments</b>: " + shipment_traces["count"].astype(
+                                                    "<b># Trades</b>: " + shipment_traces["count"].astype(
         str) + "<br>" + \
-                                     "<b>Last Shipment</b>: " + shipment_traces["last_shipment"].astype(str)
+                                     "<b>Last Trade</b>: " + shipment_traces["last_shipment"].astype(str)
     shipment_traces.drop(["last_shipment"], axis=1)
 
     # Look for duplicate midpoints and move them slightly if found.
