@@ -14,33 +14,37 @@ from dash import Dash, html, dcc, ctx, dash_table
 import dash_bootstrap_components as dbc
 import time
 
+# Colors
+lightblue = "#a6cee3"
+blue = "#1f78b4"
+lightgreen ="#b2df8a"
+green =" #33a02c"
+lightred = "#fb9a99"
+red = "#e31a1c"
+lightpurple = "#cab2d6"
+purple = "#6a3d9a"
+orange = "#fdbf6f"
+
 color_dict = {
-    # Source
-    "Artificially propagated plants": "#fff",
-    "Bred in captivity": "#367BB9",
-    "Bred in captivity (Appx I)": "#592C8F",
-    "Born in captivity": "#2A3199",
-    "Confiscated specimens": "#C8272D",
-    "Pre-Convention specimens": "#E98262",
-    "Ranched specimens": "#5CAA46",
-    "Source unknown": "#768181",
-    "Taken from wild": "#8EB03E",
-    "Taken from marine env.": "#94D6E9",
-    # Purpose
-    "Assisted production": "#831C16",
-    "Breeding": "#2A341A",
-    "Educational": "#fff",
-    "Botanical garden": "#8EB03E",
-    "Hunting Trophy": "#C0BF83",
-    "Law enforcement": "#2A3199",
-    "Medical": "#862991",
-    "(Re)introduction": "#5CAA46",
-    "Personal": "#94D6E9",
-    "Circus/Exhibition": "#F6CB50",
-    "Scientific": "#D987B9",
-    "Commercial": "#367BB9",
-    "Zoo": "#768181",
+    # Terms
+    "Animalia Products": lightgreen,
+    "Plantae Products": green,
+    "Common Products": lightblue,
+    "Processed Products": blue,
+    "Bone": purple,
+    "Skin": red,
+    "Others": orange,
+    # Map
+    "Uncertain": orange,
+    "Reintroduced": lightgreen,
+    "Native": green,
+    "Introduced": purple,
+    "Possibly Introduced": lightpurple,
+    "Extinct": red,
+    "Possibly Extinct": lightred,
 }
+
+color_discrete_sequence_list = [lightblue, blue, lightgreen, green, lightred, red, lightpurple, purple, orange]
 
 """
 Auxiliary functions
@@ -370,16 +374,18 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
                      "venom": "Others",
                      "scraps": "Others",
                      }
-        df['Category'] = df.loc[:, 'Term']
+        df["Category"] = df.loc[:, "Term"]
         df.replace({"Category": term_dict}, inplace=True)
+        df["color_id"] = df.loc[:, "Category"]
         category_list = ["Animalia Products", "Plantae Products", "Common Products", "Processed Products", "Bone", "Skin", "Others"]
+        legend_names = {}
         for category in category_list:
-            unique_terms = set(df.loc[df['Category'] == category, 'Term'].tolist())
-            unique_string = category + " (" + ", ".join(unique_terms) + ")"
-            df.replace(to_replace=category, value=unique_string, inplace=True)
+            unique_terms = set(df.loc[df["Category"] == category, "Term"].tolist())
+            unique_string = {category : category + " (" + ", ".join(unique_terms) + ")"}
+            legend_names.update(unique_string)
         df.drop(columns="Term", inplace=True)
         df.rename(columns={"Category":"Term"}, inplace=True)
-        df = df.groupby(by=['Year', "Term"], as_index=False)['Count'].sum()
+        df = df.groupby(by=["Year", "Term", "color_id"], as_index=False)["Count"].sum()
     else:
         # Aggregate Misc
         df_misc = df.copy()
@@ -390,18 +396,28 @@ def build_line_diagram(input_attribute, temporal_input, filter_terms, filter_pur
         df_misc = df_misc.loc[5:]
         misc_list = df_misc[input_attribute].tolist()
         misc_string = "Others (" + ", ".join(misc_list) + ")"
-
         df.replace(to_replace=misc_list, value=misc_string, inplace=True)
 
-    fig = go.Figure(layout=dict(template='plotly'))
-    fig = px.line(
-        df,
-        y="Count",
-        x="Year",
-        color=input_attribute,
-        color_discrete_map=color_dict,
-        markers=True
-    )
+    fig = go.Figure(layout=dict(template="plotly"))
+    if input_attribute == "Term":
+        fig = px.line(
+            df,
+            y="Count",
+            x="Year",
+            color=input_attribute,
+            color_discrete_map=color_dict,
+            markers=True
+        )
+        fig.for_each_trace(lambda x: x.update(name=legend_names[x.name]))
+    else:
+        fig = px.line(
+            df,
+            y="Count",
+            x="Year",
+            color=input_attribute,
+            color_discrete_sequence = color_discrete_sequence_list,
+            markers=True
+        )
     fig.update_layout(
         yaxis_title="Amount",
         xaxis_title="",
@@ -480,7 +496,7 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         print("No distribution data is available...")
         return map_fig
     df.set_index(["Distribution"])
-    df = df.apply(lambda x: x.str.split(',').explode())
+    df = df.apply(lambda x: x.str.split(",").explode())
 
     def row_name_to_alpha3(row, col):
         return convert_countrycode(row[col], "name", "alpha_3")
@@ -519,19 +535,19 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
 
     def bgcolor_converter(row, col):
         if row[col] == 0.5:  # Uncertain
-            return "#fff9e0"
+            return "#fedfb7"
         if row[col] == 0.2:  # Reintroduced
-            return "#f8f5cd"
+            return "#d8efc4"
         if row[col] == 0.6:  # Possible Extinct
-            return "#ffdbce"
+            return "#fdcccc"
         if row[col] == 0.7:  # Extinct
-            return "#fbb1ce"
+            return "#eb5254"
         if row[col] == 0.1:  # Native
-            return "#d3f5be"
+            return "#8cde87"
         if row[col] == 0.3:  # Introduced
-            return "#f8f5cd"
+            return "#b495d5"
         if row[col] == 0.4:  # Possibly Introduced
-            return "#dbe0f8"
+            return "#e4d8ea"
 
     def text_generation(row, col):
         if row[col] == "Native_Distribution":
@@ -556,7 +572,7 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
 
     df["alpha_3"] = df.apply(lambda row: row_name_to_alpha3(row, "Country"), axis=1)
     df["text"] = df.apply(lambda row: text_generation(row, "Distribution"), axis=1)
-    df = df.groupby(["Country", "alpha_3"])["text"].apply('<br> '.join).reset_index()
+    df = df.groupby(["Country", "alpha_3"])["text"].apply("<br> ".join).reset_index()
     df["color_category"] = df.apply(lambda row: distribution_to_color_prioritized(row, "text"), axis=1)
     df["hoverlabel_bgcolor"] = df.apply(lambda row: bgcolor_converter(row, "color_category"), axis=1)
 
@@ -571,13 +587,13 @@ def add_distributions_to_map_graph(input_taxon, conn, map_fig):
         zmax=1,
         colorscale=[
             [0, "rgba(77,77,77,0)"],  # Dummy
-            [0.1, "#4c8922"],  # Native
-            [0.2, "#aaa758"],  # Reintroduced
-            [0.3, "#0240a5"],  # Introduced
-            [0.4, "#878fbd"],  # Introduced (?)
-            [0.5, "#f2dd80"],  # Uncertain
-            [0.6, "#ce7356"],  # Extinct (?)
-            [0.7, "#8f063a"],  # Extinct
+            [0.1, green],  # Native
+            [0.2, lightgreen],  # Reintroduced
+            [0.3, purple],  # Introduced
+            [0.4, lightpurple],  # Introduced (?)
+            [0.5, orange],  # Uncertain
+            [0.6, lightred],  # Extinct (?)
+            [0.7, red],  # Extinct
             [0.8, "rgba(77,77,77,0)"],  # Dummy
             [0.9, "rgba(77,77,77,0)"],  # Dummy
             [1, "rgba(77,77,77,0)"],  # Dummy
@@ -623,13 +639,12 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 1: {elapsed_time}")
     df = db.get_data_map_graph(temporal_input, filter_terms, filter_purpose, filter_source, conn)
     df.fillna(value="Unknown", axis="index", inplace=True)
     df.replace("XX", "Unknown", inplace=True)
     df2 = df.loc[:, ["Exporter", "Importer"]].drop_duplicates(inplace=False).reset_index(drop=True)
     df2["count"], df2["width"], df2["opacity"], df2["last_shipment"] = 0, 0.0, 0.0, 0
-    shipment_traces = df2.set_index(['Exporter', 'Importer'])
+    shipment_traces = df2.set_index(["Exporter", "Importer"])
     shipment_traces.sort_index(level=0, inplace=True)
 
     # Calculate styling of connections
@@ -642,25 +657,22 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 2: {elapsed_time}")
     current_year = 0
     Unknown_locations = 0
-    df.to_excel("output.xlsx")
     for index, row in df.iterrows():
         if row["Importer"] != "Unknown" and row["Exporter"] != "Unknown":
-            if current_year != row['Year']:
-                current_year = row['Year']
+            if current_year != row["Year"]:
+                current_year = row["Year"]
                 shipment_traces["opacity"] = shipment_traces["opacity"].apply(lambda x: opacity_decrease(x))
             shipment_traces.replace({"United States": "USA", "US": "USA"}, inplace=True)
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['count']] += 1
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['opacity']] = 1.0
-            shipment_traces.loc[(row["Exporter"], row["Importer"]), ['last_shipment']] = current_year
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ["count"]] += 1
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ["opacity"]] = 1.0
+            shipment_traces.loc[(row["Exporter"], row["Importer"]), ["last_shipment"]] = current_year
         else:
             Unknown_locations += 1
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 3: {elapsed_time}")
     shipment_traces = shipment_traces[~(shipment_traces["count"] <= map_shipments_lower_tol)]
     shipment_traces = shipment_traces.reset_index()
     count_max = shipment_traces.loc[shipment_traces["count"].idxmax()].values[2]
@@ -669,12 +681,10 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
         return round(((n - count_min)/(count_max - count_min))*10, 2)
     shipment_traces["width"] = shipment_traces["count"].apply(lambda x: width_percentage(x, count_max, count_min))
     shipment_traces["width"].clip(lower=1, upper=10, axis=0, inplace=True)
-    #shipment_traces.to_csv("output4.csv")
     shipment_traces["mid_latitude"], shipment_traces["mid_longitude"] = 0.0, 0.0
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 4: {elapsed_time}")
 
     def calculate_midpoint(row):
         # Python Implementatino of: http://www.movable-type.co.uk/scripts/latlong.html
@@ -703,7 +713,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 5: {elapsed_time}")
     historic_ISO_dict = {"AN": "BQ",
                          "CS": "RS",
                          "DD": "DE",
@@ -724,20 +733,19 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
 
     # Adding Latitude/Longitude to Importer, Exporter & Midpoint
 
-    json_file = 'https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json'
+    json_file = "https://raw.githubusercontent.com/eesur/country-codes-lat-long/master/country-codes-lat-long-alpha3.json"
     with urlopen(json_file) as response:
         countries_json = json.load(response)
     countries_json = pd.DataFrame(countries_json["ref_country_codes"])
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 6: {elapsed_time}")
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Importer', right_on='alpha2').drop(columns=['alpha2']).rename(
+    shipment_traces = shipment_traces.merge(countries_json[["latitude", "longitude", "alpha2"]], how="left",
+                                            left_on="Importer", right_on="alpha2").drop(columns=["alpha2"]).rename(
         columns={"latitude": "imp_latitude", "longitude": "imp_longitude"})
 
-    shipment_traces = shipment_traces.merge(countries_json[['latitude', 'longitude', "alpha2"]], how='left',
-                                            left_on='Exporter', right_on='alpha2').drop(columns=['alpha2']).rename(
+    shipment_traces = shipment_traces.merge(countries_json[["latitude", "longitude", "alpha2"]], how="left",
+                                            left_on="Exporter", right_on="alpha2").drop(columns=["alpha2"]).rename(
         columns={"latitude": "exp_latitude", "longitude": "exp_longitude"})
 
     shipment_traces = shipment_traces.apply(lambda row: calculate_midpoint(row), axis=1)
@@ -760,7 +768,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 6: {elapsed_time}")
     rows_series = shipment_traces[["mid_latitude", "mid_longitude"]].duplicated(keep="first")
     rows = rows_series[rows_series].index.values
     shipment_traces = shipment_traces.apply(
@@ -768,7 +775,6 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
     if verbose:
         end = time.time()
         elapsed_time = round(end - start, 0)
-        print(f"Step 7: {elapsed_time}")
     # Add traces to map figure
     for i in range(len(shipment_traces)):
         exp_lat, exp_lon = shipment_traces["exp_latitude"][i], shipment_traces["exp_longitude"][i]
@@ -782,7 +788,7 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
                 hoverinfo="skip",
                 line=dict(
                     width=shipment_traces["width"][i],
-                    color="rgba(102, 149, 180, {})".format(shipment_traces['opacity'][i]))
+                    color="rgba(31, 120, 180, {})".format(shipment_traces["opacity"][i]))
             )),
     # Info Dot
     map_fig.add_trace(
@@ -791,21 +797,21 @@ def update_map_graph(temporal_input, filter_terms, filter_purpose, filter_source
             lon=shipment_traces["mid_longitude"],
             text=shipment_traces["description"],
             mode="markers",
-            hoverinfo='text',
+            hoverinfo="text",
             marker=dict(
                 size=12,
                 symbol="circle",
                 opacity=shipment_traces["opacity"],
                 cauto=False,
-                color="#4f7995",
+                color="#12476b",
                 line=dict(
                     width=2,
-                    color="#6695b4"
+                    color="#1f78b4"
                 ),
             ),
             hoverlabel=dict(
                 bgcolor="#6695b4",
-                bordercolor="#4f7995",
+                bordercolor="#1f78b4",
                 font_color="black",
                 font_size=12,
                 font_family="Verdana",
@@ -832,7 +838,7 @@ def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
                 hoverinfo="skip",
                 line=dict(
                     width=shipment_traces["width"][i],
-                    color="rgba(102, 149, 180, {})".format(shipment_traces['opacity'][i]))
+                    color="rgba(31, 120, 180, {})".format(shipment_traces["opacity"][i]))
             )),
     # Info Dot
     map_fig.add_trace(
@@ -841,21 +847,21 @@ def map_tolerance_update(map_fig, shipment_traces, map_shipments_lower_tol):
             lon=shipment_traces["mid_longitude"],
             text=shipment_traces["description"],
             mode="markers",
-            hoverinfo='text',
+            hoverinfo="text",
             marker=dict(
                 size=12,
                 symbol="circle",
                 opacity=shipment_traces["opacity"],
                 cauto=False,
-                color="#4f7995",
+                color="#12476b",
                 line=dict(
                     width=2,
-                    color="#6695b4"
+                    color="#1f78b4"
                 ),
             ),
             hoverlabel=dict(
                 bgcolor="#6695b4",
-                bordercolor="#4f7995",
+                bordercolor="#1f78b4",
                 font_color="black",
                 font_size=12,
                 font_family="Verdana",
@@ -889,13 +895,13 @@ def history_listing_generator(input_taxon, conn):
     table_rows = []
 
     for ind in df.index:
-        if df['Tooltip'][ind] is None:
+        if df["Tooltip"][ind] is None:
             table_rows.append(
                 html.Tr(
                     [
-                        html.Td(df['Year'][ind]),
-                        html.Td(df['Appendix'][ind]),
-                        html.Td(df['Change'][ind]),
+                        html.Td(df["Year"][ind]),
+                        html.Td(df["Appendix"][ind]),
+                        html.Td(df["Change"][ind]),
                         html.Td([])
                     ]
                 )
@@ -904,15 +910,15 @@ def history_listing_generator(input_taxon, conn):
             table_rows.append(
                 html.Tr(
                     [
-                        html.Td(df['Year'][ind]),
-                        html.Td(df['Appendix'][ind]),
-                        html.Td(df['Change'][ind]),
+                        html.Td(df["Year"][ind]),
+                        html.Td(df["Appendix"][ind]),
+                        html.Td(df["Change"][ind]),
                         html.Td([
                             html.I(className="bi bi-info-circle-fill me-2",
                                    id="tooltip{}".format(df["ID2"][ind])
                                    ),
                             dbc.Tooltip(
-                                df['Tooltip'][ind],
+                                df["Tooltip"][ind],
                                 target="tooltip{}".format(df["ID2"][ind]),
                                 placement="top",
                             )

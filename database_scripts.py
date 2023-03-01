@@ -76,7 +76,7 @@ def build_dropdown_species():
         conn = connect_sqlite3("cites")
         df = run_query("SELECT Taxon, amount FROM distinct_table_amount", conn)
         df = df.rename(columns={"Taxon": "value", "amount": "label"})
-        df["label"] = df['value'].astype(str) + " (Entries: " + df["label"].astype(str) + ")"
+        df["label"] = df["value"].astype(str) + " (Entries: " + df["label"].astype(str) + ")"
         df.set_index("value")
         taxon_dict = df.to_dict("records")
         conn.close()
@@ -93,7 +93,7 @@ Create a temporary table in the sqlite database with Species Data
 def build_main_df(input_taxon, conn, ctxtriggered_id):
     if ctxtriggered_id == "input_taxon":
         try:
-            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Missing Data') AS Purpose, ifnull(Source, 'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(
+            sql = "CREATE TEMPORARY TABLE temp.taxon AS SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose,'Missing Data') AS Purpose, ifnull(Source,'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(
                 input_taxon)
             conn.execute(sql)
             print("Temporary taxon table created.")
@@ -102,7 +102,7 @@ def build_main_df(input_taxon, conn, ctxtriggered_id):
             try:
                 sql = "DELETE FROM temp.taxon"
                 conn.execute(sql)
-                sql = "INSERT INTO temp.taxon SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose, 'Missing Data') AS Purpose, ifnull(Source, 'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
+                sql = "INSERT INTO temp.taxon SELECT Year, Appendix, Taxon, Family, Term, ifnull(Quantity, 'Unknown') AS Quantity, ifnull(Unit, 'Unknown') AS Unit, ifnull(Importer, 'Unknown') AS Importer, ifnull(Exporter, 'Unknown') AS Exporter, Origin, ifnull(Purpose,'Missing Data') AS Purpose, ifnull(Source,'Missing Data') AS Source FROM shipments WHERE Taxon=\"{}\"".format(input_taxon)
                 conn.execute(sql)
             except sqlite3.Error as err:
                 print(f"The error '{err}' occurred while 'copying data into temp table' in build_main_df")
@@ -127,7 +127,7 @@ Convert Python List to SQL List
 
 
 def list_to_sql(Plist):
-    citations = lambda x: "'" + str(x) + "'"
+    citations = lambda x: """ + str(x) + """
     Plist = map(citations, Plist)
     SQLlist = "(" + ", ".join(map(str, Plist)) + ")"
     return SQLlist
@@ -195,7 +195,7 @@ def ready_aux_databases(cites_plus_csv, cites_checklist_csv):
     print("Importing and Preparing Data")
     # CITES+
     # Get columns for database
-    with open(cites_plus_csv, 'r') as f:
+    with open(cites_plus_csv, "r") as f:
         csv_reader = csv.DictReader(f)
         cols = csv_reader.fieldnames
     # Ready datatypes for attributes
@@ -219,7 +219,7 @@ def build_database(database):
     csv_files = os.listdir(dir)
     csv_files = [dir + x for x in csv_files]
     # Get columns for database
-    with open(csv_files[0], 'r') as f:
+    with open(csv_files[0], "r") as f:
         csv_reader = csv.DictReader(f)
         cols = csv_reader.fieldnames
     # Ready datatypes for attributes
@@ -281,7 +281,7 @@ def build_database(database):
             # Using pandas df is faster than iterating over rows
             start_time = time.perf_counter()
             df = pd.read_csv(file, dtype=dtypes_dict)
-            df.to_sql(table, conn, if_exists='append', index=False)
+            df.to_sql(table, conn, if_exists="append", index=False)
             # Calculate run time
             end_time = time.perf_counter()
             run_time = end_time - start_time
@@ -299,7 +299,7 @@ def build_database(database):
                 db_rows = db_rows.fetchone()[0]
                 print(f"Rows in DF: {df_rows}. Total rows processed: {total_rows_proc}. Current rows in DB: {db_rows}.")
                 if total_rows_proc != db_rows:
-                    raise ValueError('Mismatch in database. Stopping import...')
+                    raise ValueError("Mismatch in database. Stopping import...")
             i += 1
         except sqlite3.Error as err:
             print(f"The error '{err}' occurred while importing {file}")
@@ -334,7 +334,7 @@ def build_species_plus_table(database):
     speciesplus_csv = "CITES/species_plus_params_cites_listing.csv"
     # Optimize Pandas Import
     # Get columns for database
-    with open(speciesplus_csv, 'r') as f:
+    with open(speciesplus_csv, "r") as f:
         csv_reader = csv.DictReader(f)
         cols = csv_reader.fieldnames
     dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
@@ -362,7 +362,7 @@ def build_species_plus_table(database):
     df.insert(4, "Party", fourth_column)
     # Insert Data to table database
     try:
-        df.to_sql(table, conn, if_exists='replace', index=False)
+        df.to_sql(table, conn, if_exists="replace", index=False)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while importing species + database")
     print("Species+ Database creation complete")
@@ -372,7 +372,7 @@ def build_history_table(database):
     history_csv = "CITES/History_of_CITES_Listings.csv"
     # Optimize Pandas Import
     # Get columns for database
-    with open(history_csv, 'r') as f:
+    with open(history_csv, "r") as f:
         csv_reader = csv.DictReader(f)
         cols = csv_reader.fieldnames
     dtypes_dict = {cols[i]: "str" for i in range(len(cols))}
@@ -406,7 +406,7 @@ def build_history_table(database):
     # Insert Data to table database
     print(df.to_string(max_rows=20))
     try:
-        df.to_sql(table, conn, if_exists='replace', index=False)
+        df.to_sql(table, conn, if_exists="replace", index=False)
     except sqlite3.Error as err:
         print(f"The error '{err}' occurred while importing species + database")
     print("History Listing Database creation complete")

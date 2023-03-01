@@ -1,5 +1,4 @@
 import database_scripts as db
-from cfg import null_graph
 import plot_builder as pltbld
 from dash import Dash, html, dcc, ctx, dash_table
 import plotly.express as px
@@ -107,7 +106,7 @@ badges = dbc.ButtonGroup(
             ],
             color="primary", class_name="custom_Button",
         ),
-        daq.BooleanSwitch(id='dev_generate_map', on=True),
+        daq.BooleanSwitch(id="dev_generate_map", on=True, style={"display": "None"}),
     ], class_name="custom_ButtonGroup")
 
 header_info = dbc.Col([badges, ], md=7)
@@ -315,7 +314,7 @@ app.layout = dbc.Container(
             align="start", justify="center",
         ),
     ],
-    fluid=True, style={'backgroundColor': "#eeeeee", "margin-bottom":"20px"}
+    fluid=True, style={"backgroundColor": "#eeeeee", "margin-bottom":"20px"}
 )
 
 """
@@ -346,10 +345,10 @@ def create_taxon_temp_table(input_taxon):
     db.build_main_df(input_taxon, conn, ctx.triggered_id)
     sql = "SELECT MIN(Year), MAX(Year), Family FROM temp.Taxon"
     basic_data = db.run_query(sql, conn)
-    temporal_min = int(basic_data['MIN(Year)'].values[0])
-    temporal_max = int(basic_data['MAX(Year)'].values[0])
-    family = str(basic_data['Family'].values[0])
-    kingdom = "MY KINGDOM"
+    temporal_min = int(basic_data["MIN(Year)"].values[0])
+    temporal_max = int(basic_data["MAX(Year)"].values[0])
+    family = str(basic_data["Family"].values[0])
+    kingdom = ".."
     history_listing_table = pltbld.history_listing_generator(input_taxon, conn)
     return "search_active", temporal_min, temporal_max, kingdom, family, history_listing_table, 0
 
@@ -487,7 +486,7 @@ def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purp
             print("Updating map with lower tolerance...")
             map_fig_no_traces = pltbld.build_empty_map_graph()
             map_fig_no_traces = pltbld.add_distributions_to_map_graph(input_taxon, conn, map_fig_no_traces)
-            shipment_Store_read = pd.read_json(shipment_Store, orient='split')
+            shipment_Store_read = pd.read_json(shipment_Store, orient="split")
             map_fig = pltbld.map_tolerance_update(map_fig_no_traces, shipment_Store_read, map_shipments_lower_tol)
             return map_fig, shipment_Store
         else:
@@ -499,14 +498,14 @@ def build_map(activation, input_taxon, temporal_input, filter_terms, filter_purp
         end = time.time()
         elapsed_time = round(end - start, 0)
         print(f"Finished map! Elapsed Process Time: {elapsed_time} secs")
-        return map_fig, shipment_traces.to_json(date_format='iso', orient='split')
+        return map_fig, shipment_traces.to_json(date_format="iso", orient="split")
     else:
         map_fig_no_traces = pltbld.build_empty_map_graph()
         return map_fig_no_traces, shipment_Store
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False)
     #app.run_server(host="0.0.0.0", port="8050")
 
 
